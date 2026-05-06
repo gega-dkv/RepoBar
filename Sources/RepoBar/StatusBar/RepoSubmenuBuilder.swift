@@ -156,19 +156,13 @@ struct RepoSubmenuBuilder {
                 badgeText: StatValueFormatter.compact(repo.pulls)
             ))]
         case .releases:
-            let cachedReleaseCount = self.target.cachedRecentListCount(fullName: repo.title, kind: .releases)
             let latestReleaseName = repo.source.latestRelease?.name
-            let badgeCountText = cachedReleaseCount.flatMap { $0 > 0 ? String($0) : nil }
             let badgeAccessibilityLabel: String? = {
                 let name = latestReleaseName.flatMap { $0.isEmpty == false ? $0 : nil }
-                switch (name, badgeCountText) {
-                case let (name?, count?):
-                    return "Latest release \(name). \(count) releases."
-                case let (name?, nil):
+                switch name {
+                case let name?:
                     return "Latest release \(name)."
-                case let (nil, count?):
-                    return "Releases \(count)."
-                case (nil, nil):
+                case nil:
                     return nil
                 }
             }()
@@ -180,7 +174,7 @@ struct RepoSubmenuBuilder {
                 openTitle: "Open Releases",
                 openAction: #selector(self.target.openReleases),
                 badgePrefixText: latestReleaseName,
-                badgeText: badgeCountText,
+                badgeText: nil,
                 badgeAccessibilityLabel: badgeAccessibilityLabel
             ))]
         case .changelog:
@@ -208,7 +202,6 @@ struct RepoSubmenuBuilder {
             if repo.source.discussionsEnabled == false {
                 return []
             }
-            let cachedDiscussionCount = self.target.cachedRecentListCount(fullName: repo.title, kind: .discussions)
             return [self.recentListSubmenuItem(RecentListConfig(
                 title: "Discussions",
                 systemImage: "bubble.left.and.bubble.right",
@@ -216,10 +209,9 @@ struct RepoSubmenuBuilder {
                 kind: .discussions,
                 openTitle: "Open Discussions",
                 openAction: #selector(self.target.openDiscussions),
-                badgeText: cachedDiscussionCount.flatMap { $0 > 0 ? String($0) : nil }
+                badgeText: nil
             ))]
         case .tags:
-            let cachedTagCount = self.target.cachedRecentListCount(fullName: repo.title, kind: .tags)
             return [self.recentListSubmenuItem(RecentListConfig(
                 title: "Tags",
                 systemImage: "tag",
@@ -227,13 +219,11 @@ struct RepoSubmenuBuilder {
                 kind: .tags,
                 openTitle: "Open Tags",
                 openAction: #selector(self.target.openTags),
-                badgeText: cachedTagCount.flatMap { $0 > 0 ? String($0) : nil }
+                badgeText: nil
             ))]
         case .branches:
-            let cachedBranchCount = self.target.cachedRecentListCount(fullName: repo.title, kind: .branches)
-            let branchBadge = cachedBranchCount.flatMap { $0 > 0 ? String($0) : nil }
             if let local {
-                return [self.branchesSubmenuItem(for: local, fullName: repo.title, badgeText: branchBadge)]
+                return [self.branchesSubmenuItem(for: local, fullName: repo.title, badgeText: nil)]
             }
             return [self.recentListSubmenuItem(RecentListConfig(
                 title: "Branches",
@@ -242,10 +232,9 @@ struct RepoSubmenuBuilder {
                 kind: .branches,
                 openTitle: "Open Branches",
                 openAction: #selector(self.target.openBranches),
-                badgeText: branchBadge
+                badgeText: nil
             ))]
         case .contributors:
-            let cachedContributorCount = self.target.cachedRecentListCount(fullName: repo.title, kind: .contributors)
             return [self.recentListSubmenuItem(RecentListConfig(
                 title: "Contributors",
                 systemImage: "person.2",
@@ -253,7 +242,7 @@ struct RepoSubmenuBuilder {
                 kind: .contributors,
                 openTitle: "Open Contributors",
                 openAction: #selector(self.target.openContributors),
-                badgeText: cachedContributorCount.flatMap { $0 > 0 ? String($0) : nil }
+                badgeText: nil
             ))]
         case .heatmap:
             guard settings.heatmap.display == .submenu, !repo.heatmap.isEmpty else { return [] }

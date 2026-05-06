@@ -168,12 +168,6 @@ final class RecentMenuService {
         return Dictionary(uniqueKeysWithValues: descriptors.map { ($0.kind, $0) })
     }
 
-    func cachedRecentListCount(fullName: String, kind: RepoRecentMenuKind) -> Int? {
-        guard let descriptor = self.descriptor(for: kind) else { return nil }
-
-        return descriptor.stale(fullName)?.count
-    }
-
     func cachedRecentCommitCount(fullName: String) -> Int? {
         if let total = self.recentCommitCounts[fullName] { return total }
         return self.recentCommitsCache.stale(for: fullName)?.count

@@ -51,12 +51,7 @@ extension StatusBarMenuBuilder {
             heatmapRange: self.appState.session.heatmapRange,
             recentCounts: RepoRecentCountSignature(
                 commits: self.target.cachedRecentCommitCount(fullName: repo.title),
-                commitsDigest: self.target.cachedRecentCommitDigest(fullName: repo.title),
-                releases: self.target.cachedRecentListCount(fullName: repo.title, kind: .releases),
-                discussions: self.target.cachedRecentListCount(fullName: repo.title, kind: .discussions),
-                tags: self.target.cachedRecentListCount(fullName: repo.title, kind: .tags),
-                branches: self.target.cachedRecentListCount(fullName: repo.title, kind: .branches),
-                contributors: self.target.cachedRecentListCount(fullName: repo.title, kind: .contributors)
+                commitsDigest: self.target.cachedRecentCommitDigest(fullName: repo.title)
             ),
             changelogPresentation: changelogPresentation,
             changelogHeadline: changelogHeadline,

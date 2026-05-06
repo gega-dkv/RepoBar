@@ -35,10 +35,6 @@ final class RecentListMenuCoordinator {
         self.recentListMenus[ObjectIdentifier(menu)] = RecentListMenuEntry(menu: menu, context: context)
     }
 
-    func cachedRecentListCount(fullName: String, kind: RepoRecentMenuKind) -> Int? {
-        self.menuService.cachedRecentListCount(fullName: fullName, kind: kind)
-    }
-
     func cachedRecentCommitCount(fullName: String) -> Int? {
         self.menuService.cachedRecentCommitCount(fullName: fullName)
     }

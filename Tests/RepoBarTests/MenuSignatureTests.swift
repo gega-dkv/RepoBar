@@ -32,12 +32,7 @@ struct MenuSignatureTests {
             heatmapRange: range,
             recentCounts: RepoRecentCountSignature(
                 commits: nil,
-                commitsDigest: nil,
-                releases: nil,
-                discussions: nil,
-                tags: nil,
-                branches: nil,
-                contributors: nil
+                commitsDigest: nil
             ),
             changelogPresentation: nil,
             changelogHeadline: nil,
@@ -67,12 +62,7 @@ struct MenuSignatureTests {
             heatmapRange: range,
             recentCounts: RepoRecentCountSignature(
                 commits: nil,
-                commitsDigest: nil,
-                releases: nil,
-                discussions: nil,
-                tags: nil,
-                branches: nil,
-                contributors: nil
+                commitsDigest: nil
             ),
             changelogPresentation: nil,
             changelogHeadline: nil,

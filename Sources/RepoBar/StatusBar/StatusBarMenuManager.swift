@@ -485,10 +485,6 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
         self.recentListCoordinator.registerRecentListMenu(menu, context: context)
     }
 
-    func cachedRecentListCount(fullName: String, kind: RepoRecentMenuKind) -> Int? {
-        self.recentListCoordinator.cachedRecentListCount(fullName: fullName, kind: kind)
-    }
-
     func cachedRecentCommitCount(fullName: String) -> Int? {
         self.recentListCoordinator.cachedRecentCommitCount(fullName: fullName)
     }
