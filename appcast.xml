@@ -3,6 +3,17 @@
     <channel>
         <title>RepoBar</title>
         <item>
+            <title>0.4.2</title>
+            <pubDate>Wed, 06 May 2026 02:15:12 +0100</pubDate>
+            <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.4.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <description><![CDATA[<ul><li>Remove misleading page-size count badges from Releases, Discussions, Tags, Branches, and Contributors submenu rows.</li><li>Sort repository activity events by timestamp so repo submenus do not show stale activity when GitHub returns events out of order.</li><li>Refresh the RepoBar website with a cleaner minimal design, dark-mode support, and clearer install/setup copy.</li></ul>
+]]></description>
+            <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.4.2/RepoBar-0.4.2.zip" length="22630320" type="application/octet-stream" sparkle:edSignature="rXw06zq1dUrg4RCVFDvTChWgykucFmnSF//cZFL9TBlsXbL2765J06H+y14n/RlBvSIXLpYchlqo90Q9Xum2Dw=="/>
+        </item>
+        <item>
             <title>0.4.1</title>
             <pubDate>Tue, 05 May 2026 03:22:23 +0100</pubDate>
             <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
@@ -23,17 +34,6 @@
             <description><![CDATA[<ul><li>Fix Issues submenus when GitHub returns pull requests in the REST issues feed before actual issues, surface GitHub rate limits in the menu UI, and add usable recent-list/REST logs for debugging stuck submenu loads.</li><li>Keep cached repo submenus wired to their recent Issues/PR loaders after menu filter rebuilds so nested lists do not stay stuck on “Loading…”.</li><li>Rebuild the open menu when hydrated repository counts arrive so PR badges no longer stay at the cheap REST-list placeholder value.</li><li>Seed first-open menu rows from the persistent cache, using cached repo-detail PR counts instead of showing a loading spinner when SQLite already has data.</li><li>Rebuild the contribution/profile submenu when global GitHub activity finishes loading, and add a GitHub Rate Limits submenu with live REST/GraphQL plus persisted REST resource limits.</li><li>Fetch pagination-header-based PR/commit counts without conditional ETag reuse so cached bodies cannot collapse counts to one item.</li><li>Clamp SwiftUI-hosted menu row measurements and give plain hosted rows intrinsic vertical sizing so first-open menu layout cannot inflate into an oversized scroll well.</li><li>Add the GRDB-backed persistent REST cache foundation plus RepoBar-owned GitHub archive source settings/CLI commands, explicitly avoiding gitcrawl config discovery.</li><li>Add CLI cache diagnostics/clear commands and archive status/validate/update commands so the new cache/archive surfaces are script-testable.</li><li>Make RepoBar&#x27;s SQLite ETag cache authoritative by bypassing URLSession&#x27;s local HTTP cache for conditional GitHub REST requests.</li><li>Add persistent GraphQL response caching, native gzip archive import, archive issue/PR readers with rate-limit fallback, and Settings archive update/status controls.</li><li>Fix release tagging when Git is configured to sign tags by default.</li></ul>
 ]]></description>
             <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.4.0/RepoBar-0.4.0.zip" length="22250115" type="application/octet-stream" sparkle:edSignature="oSQXyyJF7CZfUbedyLQ+9g14U65S+Q7Exz3ICY1VI3VHvHLw4FKqZhIMkT5CF6bv0pjD5J2N3J5CkfmO8dciAQ=="/>
-        </item>
-        <item>
-            <title>0.3.0</title>
-            <pubDate>Sun, 03 May 2026 17:01:36 +0100</pubDate>
-            <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>0.3.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-            <description><![CDATA[<ul><li>Stop requesting broad OAuth repository scopes for the built-in GitHub.com GitHub App login; custom Enterprise OAuth still requests `repo read:org`.</li><li>Clarify private organization repository access: Accounts now links to the RepoBar GitHub App installation, docs explain the installation/PAT boundary, and direct repo 404s say when a repo is not visible to the current token.</li><li>Fix release signing defaults so Developer ID builds strip the shared keychain access group unless explicitly enabled with a provisioning profile (#44, thanks @Chefski).</li><li>Sign bundled helper binaries without app-only entitlements so the CLI is not rejected by AMFI.</li><li>Default SwiftPM debug CLI/test auth to file-backed storage so local runs do not trigger Keychain prompts.</li><li>Fix owner-filtered CLI repo lists so `--limit` is applied after filtering by owner.</li><li>Turn the Repositories settings tab into a searchable browser for accessible repos with pinned/hidden state.</li><li>Improve macOS 26 menubar attachment compatibility by updating MenuBarExtraAccess and using its required modifier order (#47, thanks @jviehhauser).</li><li>Prevent duplicate repository entries from crashing refresh or menu rendering.</li><li>Fix awkward cooldown error copy.</li><li>Bound long-lived menu/API caches to avoid gradual memory growth.</li><li>Update README install/setup guidance for the 0.3.0 flow and point Homebrew users at the official cask.</li><li>Add the MIT license.</li><li>Update Swift package and npm dependencies, including MenuBarExtraAccess compatibility work.</li><li>Update GitHub Actions pins, opt actions into the Node 24 runtime, and make CI Homebrew tool installation idempotent.</li><li>Strengthen SwiftLint and SwiftFormat rules and apply the current formatter output.</li></ul>
-]]></description>
-            <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.3.0/RepoBar-0.3.0.zip" length="15406943" type="application/octet-stream" sparkle:edSignature="0Lb7Y0YjsXGGNZTJ5OGPkfdWa/H2k8JiCGArVpFe6fxwizEp/hh5UTpdM/poYkT8a2G2baeaRQrLXlYKXpe/BA=="/>
         </item>
     </channel>
 </rss>
