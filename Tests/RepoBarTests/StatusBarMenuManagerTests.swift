@@ -35,6 +35,7 @@ struct StatusBarMenuManagerTests {
         #expect(button.isEnabled)
         #expect(!self.containsHostingView(button))
         #expect(menu.items.contains { $0.title == "Open #42 in Browser" })
+        #expect(menu.items.contains { $0.view is MenuItemHostingView })
         #expect(button.title.contains("#42 Open owner/repo"))
 
         appState.session.keyboardIssueMatch = nil

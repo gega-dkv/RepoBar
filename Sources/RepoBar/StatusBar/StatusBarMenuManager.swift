@@ -260,13 +260,12 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
         openItem.image?.isTemplate = true
         menu.addItem(openItem)
 
-        let titleItem = NSMenuItem(title: self.keyboardIssueMenuTitle(for: match), action: nil, keyEquivalent: "")
-        titleItem.isEnabled = false
-        menu.addItem(titleItem)
-
-        let repoItem = NSMenuItem(title: match.repositoryFullName, action: nil, keyEquivalent: "")
-        repoItem.isEnabled = false
-        menu.addItem(repoItem)
+        let preview = GitHubReferencePreviewMenuItemView(match: match) { [weak self] in
+            self?.open(url: match.url)
+        }
+        let previewItem = self.menuItemFactory.makeItem(for: preview, enabled: true, highlightable: true)
+        previewItem.toolTip = self.keyboardIssueMenuTitle(for: match)
+        menu.addItem(previewItem)
 
         menu.addItem(.separator())
 
