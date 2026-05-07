@@ -166,6 +166,7 @@ final class StatusBarMenuBuilder {
             let hasLocalFolder = session.settings.localProjects.rootPath?.isEmpty == false
             // Show filters if logged in with repos, OR if local folder is configured
             guard isLoggedIn ? session.hasLoadedRepositories : hasLocalFolder else { return [] }
+            guard isLoggedIn else { return [] }
 
             let filters = MenuRepoFiltersView(session: session)
                 .padding(.horizontal, 0)
