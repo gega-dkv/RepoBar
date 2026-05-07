@@ -39,6 +39,9 @@ public struct RateLimitDisplayState: Sendable {
         if self.diagnostics.rateLimitReset.map({ $0 > now }) ?? false {
             return true
         }
+        if self.diagnostics.endpointCooldowns.contains(where: { $0.retryAfter > now }) {
+            return true
+        }
         return self.cacheSummary?.rateLimits.contains { $0.resetAt > now } ?? false
     }
 }

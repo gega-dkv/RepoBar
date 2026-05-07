@@ -176,12 +176,28 @@ actor GitHubRequestRunner {
 
     func diagnosticsSnapshot() async -> RequestRunnerDiagnostics {
         let etagCount = await self.etagCache.count()
-        let backoffCount = await self.backoff.count()
+        let activeCooldowns = await self.backoff.activeCooldowns()
+        let endpointCooldowns = activeCooldowns
+            .compactMap { urlString, retryAfter -> EndpointCooldownSummary? in
+                guard let url = URL(string: urlString) else { return nil }
+
+                return EndpointCooldownSummary(
+                    endpoint: Self.endpointDescription(for: url),
+                    repository: Self.repositoryName(for: url),
+                    url: urlString,
+                    retryAfter: retryAfter
+                )
+            }
+            .sorted { lhs, rhs in
+                if lhs.retryAfter != rhs.retryAfter { return lhs.retryAfter < rhs.retryAfter }
+                return lhs.url < rhs.url
+            }
         return RequestRunnerDiagnostics(
             rateLimitReset: self.lastRateLimitReset,
             lastRateLimitError: self.lastRateLimitError,
             etagEntries: etagCount,
-            backoffEntries: backoffCount,
+            backoffEntries: activeCooldowns.count,
+            endpointCooldowns: endpointCooldowns,
             restRateLimit: self.latestRestRateLimit,
             rateLimitResources: self.latestRateLimitResources
         )
@@ -281,6 +297,15 @@ actor GitHubRequestRunner {
             return suffix
         }
     }
+
+    private static func repositoryName(for url: URL) -> String? {
+        let components = url.path.split(separator: "/").map(String.init)
+        guard let repoIndex = components.firstIndex(of: "repos"), components.count > repoIndex + 2 else {
+            return nil
+        }
+
+        return "\(components[repoIndex + 1])/\(components[repoIndex + 2])"
+    }
 }
 
 private extension URL {
@@ -296,6 +321,7 @@ struct RequestRunnerDiagnostics {
     let lastRateLimitError: String?
     let etagEntries: Int
     let backoffEntries: Int
+    let endpointCooldowns: [EndpointCooldownSummary]
     let restRateLimit: RateLimitSnapshot?
     let rateLimitResources: RateLimitResourcesSnapshot?
 }

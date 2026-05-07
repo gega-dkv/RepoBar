@@ -44,4 +44,20 @@ struct GitHubRequestRunnerTests {
 
         #expect(message == "GitHub endpoint cooldown (Actions runs); retry in 30 sec.")
     }
+
+    @Test
+    func `diagnostics expose endpoint cooldowns`() async throws {
+        let url = try #require(URL(string: "https://api.github.com/repos/owner/repo/stats/commit_activity"))
+        let backoff = BackoffTracker()
+        let retryAfter = Date().addingTimeInterval(30)
+        await backoff.setCooldown(url: url, until: retryAfter)
+        let runner = GitHubRequestRunner(backoff: backoff)
+
+        let diagnostics = await runner.diagnosticsSnapshot()
+
+        #expect(diagnostics.backoffEntries == 1)
+        #expect(diagnostics.endpointCooldowns.count == 1)
+        #expect(diagnostics.endpointCooldowns.first?.endpoint == "commit activity")
+        #expect(diagnostics.endpointCooldowns.first?.repository == "owner/repo")
+    }
 }

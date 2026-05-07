@@ -1,6 +1,5 @@
 import AppKit
 import Kingfisher
-import Logging
 import RepoBarCore
 import SwiftUI
 
@@ -68,8 +67,6 @@ private struct RepoBarLifecycleKeepaliveView: View {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var menuManager: StatusBarMenuManager?
-    private var statusItem: NSStatusItem?
-    private let logger = RepoBarLogging.logger("menu-state")
 
     func configure(menuManager: StatusBarMenuManager) {
         self.menuManager = menuManager
@@ -82,34 +79,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         configureImagePipeline()
-        NSApp.setActivationPolicy(.accessory)
-        self.ensureStatusItem()
+        self.menuManager?.ensureStatusItems()
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_: NSApplication) -> Bool {
         false
-    }
-
-    private func ensureStatusItem() {
-        guard self.statusItem == nil, let menuManager = self.menuManager else { return }
-
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        item.isVisible = true
-        item.button?.imageScaling = .scaleNone
-        self.statusItem = item
-        menuManager.attachMainMenu(to: item)
-        self.logMenuEvent("direct statusItem attach statusItem=\(self.objectID(item))")
-    }
-
-    private func logMenuEvent(_ message: String) {
-        self.logger.info("\(message)")
-        Task { await DiagnosticsLogger.shared.message(message) }
-    }
-
-    private func objectID(_ object: AnyObject?) -> String {
-        guard let object else { return "nil" }
-
-        return String(ObjectIdentifier(object).hashValue)
     }
 }
 

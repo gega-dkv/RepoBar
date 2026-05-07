@@ -34,6 +34,7 @@ struct RateLimitMenuSignature: Hashable {
     let graphQLLimit: Int?
     let graphQLReset: Date?
     let liveResources: [LiveRateLimitResourceSignature]
+    let endpointCooldowns: [EndpointCooldownSignature]
     let cachedResponses: [CachedRateLimitSignature]
     let activeLimits: [ActiveRateLimitSignature]
 
@@ -58,6 +59,7 @@ struct RateLimitMenuSignature: Hashable {
                 LiveRateLimitResourceSignature(resource: resource, snapshot: snapshot)
             }
             .sorted { $0.resource < $1.resource } ?? []
+        self.endpointCooldowns = diagnostics.endpointCooldowns.map(EndpointCooldownSignature.init)
         self.cachedResponses = state.cacheSummary
             .map(RateLimitStatusFormatter.observedRateLimitRows(from:))?
             .map(CachedRateLimitSignature.init) ?? []
@@ -76,6 +78,20 @@ struct LiveRateLimitResourceSignature: Hashable {
         self.remaining = snapshot.remaining
         self.limit = snapshot.limit
         self.reset = snapshot.reset
+    }
+}
+
+struct EndpointCooldownSignature: Hashable {
+    let endpoint: String
+    let repository: String?
+    let url: String
+    let retryAfter: Date
+
+    init(_ cooldown: EndpointCooldownSummary) {
+        self.endpoint = cooldown.endpoint
+        self.repository = cooldown.repository
+        self.url = cooldown.url
+        self.retryAfter = cooldown.retryAfter
     }
 }
 

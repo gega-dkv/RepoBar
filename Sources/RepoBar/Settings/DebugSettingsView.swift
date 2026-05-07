@@ -106,6 +106,18 @@ struct DebugSettingsView: View {
                 if let error = diagnostics.lastRateLimitError {
                     LabeledContent("Last API notice") { Text(error).foregroundStyle(.red) }
                 }
+                if self.diagnostics.endpointCooldowns.isEmpty == false {
+                    LabeledContent("Endpoint cooldowns") {
+                        VStack(alignment: .trailing, spacing: 3) {
+                            ForEach(self.diagnostics.endpointCooldowns, id: \.url) { cooldown in
+                                Text(self.endpointCooldownText(cooldown))
+                                    .lineLimit(2)
+                                    .multilineTextAlignment(.trailing)
+                                    .foregroundStyle(.orange)
+                            }
+                        }
+                    }
+                }
                 LabeledContent("Backoff entries") { Text("\(self.diagnostics.backoffEntries)") }
                 LabeledContent("ETag entries") { Text("\(self.diagnostics.etagEntries)") }
                 Button("Refresh diagnostics") { Task { await self.loadDiagnosticsIfEnabled() } }
@@ -157,5 +169,14 @@ struct DebugSettingsView: View {
         }
         let text = parts.joined(separator: " • ")
         return text.isEmpty ? "—" : text
+    }
+
+    private func endpointCooldownText(_ cooldown: EndpointCooldownSummary) -> String {
+        let label = if let repository = cooldown.repository {
+            "\(repository) \(cooldown.endpoint)"
+        } else {
+            cooldown.endpoint
+        }
+        return "\(label), retry \(RelativeFormatter.string(from: cooldown.retryAfter, relativeTo: Date()))"
     }
 }

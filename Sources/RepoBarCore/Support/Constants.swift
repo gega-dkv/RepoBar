@@ -14,6 +14,7 @@ public enum LocalProjectsConstants {
     // below the configured root path.
     public static let defaultMaxDepth: Int = 4
     public static let defaultSnapshotConcurrencyLimit: Int = 8
+    public static let gitCommandTimeout: TimeInterval = 8
     public static let dirtyFileLimit: Int = 10
 }
 

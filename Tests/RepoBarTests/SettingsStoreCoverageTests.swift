@@ -22,6 +22,7 @@ struct SettingsStoreCoverageTests {
 
         var settings = UserSettings()
         settings.repoList.displayLimit = 9
+        settings.issueNumberMonitor.enabled = true
         settings.githubHost = try #require(URL(string: "https://github.example.com"))
         settings.githubArchives.sources = [
             GitHubArchiveSource(
@@ -35,6 +36,7 @@ struct SettingsStoreCoverageTests {
 
         let loaded = store.load()
         #expect(loaded.repoList.displayLimit == 9)
+        #expect(loaded.issueNumberMonitor.enabled)
         #expect(loaded.githubHost == URL(string: "https://github.example.com")!)
         #expect(loaded.githubArchives.sources.first?.name == "openclaw")
         #expect(loaded.githubArchives.sources.first?.format == .discrawlSnapshot)
@@ -82,10 +84,12 @@ struct SettingsStoreCoverageTests {
         let data = try JSONEncoder().encode(original)
         var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         object.removeValue(forKey: "githubArchives")
+        object.removeValue(forKey: "issueNumberMonitor")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
 
         let loaded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
         #expect(loaded.repoList.displayLimit == 4)
+        #expect(loaded.issueNumberMonitor == IssueNumberMonitorSettings())
         #expect(loaded.githubArchives == GitHubArchiveSettings())
     }
 

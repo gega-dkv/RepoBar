@@ -214,4 +214,88 @@ struct RateLimitStatusFormatterTests {
         )
         #expect(sectionsWithCache.map(\.title) == ["REST Core", "GraphQL"])
     }
+
+    @Test
+    func `sections show endpoint cooldowns next to healthy quota buckets`() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 5000)
+        let diagnostics = try DiagnosticsSummary(
+            apiHost: #require(URL(string: "https://api.github.com")),
+            rateLimitReset: nil,
+            lastRateLimitError: nil,
+            etagEntries: 0,
+            backoffEntries: 1,
+            endpointCooldowns: [
+                EndpointCooldownSummary(
+                    endpoint: "commit activity",
+                    repository: "openclaw/clawsweeper-state",
+                    url: "https://api.github.com/repos/openclaw/clawsweeper-state/stats/commit_activity",
+                    retryAfter: now.addingTimeInterval(60)
+                )
+            ],
+            restRateLimit: nil,
+            graphQLRateLimit: nil,
+            rateLimitResources: RateLimitResourcesSnapshot(
+                fetchedAt: now,
+                resources: [
+                    "graphql": RateLimitSnapshot(
+                        resource: "graphql",
+                        limit: 5000,
+                        remaining: 4898,
+                        used: 102,
+                        reset: now.addingTimeInterval(1000),
+                        fetchedAt: now
+                    )
+                ]
+            )
+        )
+
+        let sections = RateLimitStatusFormatter.sections(
+            diagnostics: diagnostics,
+            cacheSummary: nil,
+            now: now
+        )
+
+        #expect(sections.map(\.title) == ["GraphQL", "Endpoint Cooldowns"])
+        #expect(sections[1].rows == ["openclaw/clawsweeper-state commit activity · retry in 1 min."])
+    }
+
+    @Test
+    func `compact summary mentions endpoint cooldown first`() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 6000)
+        let diagnostics = try DiagnosticsSummary(
+            apiHost: #require(URL(string: "https://api.github.com")),
+            rateLimitReset: nil,
+            lastRateLimitError: nil,
+            etagEntries: 0,
+            backoffEntries: 1,
+            endpointCooldowns: [
+                EndpointCooldownSummary(
+                    endpoint: "commit activity",
+                    repository: "openclaw/openclaw",
+                    url: "https://api.github.com/repos/openclaw/openclaw/stats/commit_activity",
+                    retryAfter: now.addingTimeInterval(30)
+                )
+            ],
+            restRateLimit: RateLimitSnapshot(
+                resource: "core",
+                limit: 5000,
+                remaining: 4400,
+                used: 600,
+                reset: now.addingTimeInterval(600),
+                fetchedAt: now
+            ),
+            graphQLRateLimit: nil,
+            rateLimitResources: nil
+        )
+
+        let summary = RateLimitStatusFormatter.compactSummary(
+            diagnostics: diagnostics,
+            cacheSummary: nil,
+            now: now
+        )
+        let state = RateLimitDisplayState(diagnostics: diagnostics)
+
+        #expect(summary == "Endpoint cooldown · openclaw/openclaw commit activity · retry in 30 sec.")
+        #expect(state.isLimited(now: now))
+    }
 }

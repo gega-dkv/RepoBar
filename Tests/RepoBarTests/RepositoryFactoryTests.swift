@@ -16,6 +16,7 @@ struct RepositoryFactoryTests {
           "stargazers_count": 99,
           "forks_count": 12,
           "pushed_at": "2025-01-01T00:00:00Z",
+          "permissions": { "admin": false, "maintain": true, "push": false, "pull": true },
           "owner": { "login": "steipete" }
         }
         """
@@ -45,6 +46,7 @@ struct RepositoryFactoryTests {
         #expect(repo.owner == "steipete")
         #expect(repo.isFork == true)
         #expect(repo.isArchived == true)
+        #expect(repo.viewerCanRead == true)
         #expect(repo.openIssues == 5)
         #expect(repo.openPulls == 3)
         #expect(repo.stars == 99)

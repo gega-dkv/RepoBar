@@ -78,6 +78,12 @@ else
 PLIST
 fi
 
+if [ "${REPOBAR_DEBUG_SIGNING:-0}" -eq 1 ]; then
+  /usr/libexec/PlistBuddy -c "Add :com.apple.security.get-task-allow bool true" "$TMP_ENTITLEMENTS" >/dev/null 2>&1 ||
+    /usr/libexec/PlistBuddy -c "Set :com.apple.security.get-task-allow true" "$TMP_ENTITLEMENTS" >/dev/null 2>&1 || true
+  log "Enabled get-task-allow for LLDB attach"
+fi
+
 log "Signing frameworks (if any)"
 find "$APP_PATH/Contents/Frameworks" \( -type d -name '*.framework' -o -type f -name '*.dylib' \) 2>/dev/null | while read -r fw; do
   codesign --force --options runtime --timestamp --sign "$IDENTITY" "$fw"

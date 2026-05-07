@@ -22,6 +22,25 @@ actor LocalRepoManager {
         let matchRepoNames: Set<String>
         let forceRescan: Bool
         let maxDepth: Int
+        let allowNetworkOperations: Bool
+
+        init(
+            autoSyncEnabled: Bool,
+            fetchInterval: TimeInterval,
+            preferredPathsByFullName: [String: String],
+            matchRepoNames: Set<String>,
+            forceRescan: Bool,
+            maxDepth: Int,
+            allowNetworkOperations: Bool = false
+        ) {
+            self.autoSyncEnabled = autoSyncEnabled
+            self.fetchInterval = fetchInterval
+            self.preferredPathsByFullName = preferredPathsByFullName
+            self.matchRepoNames = matchRepoNames
+            self.forceRescan = forceRescan
+            self.maxDepth = maxDepth
+            self.allowNetworkOperations = allowNetworkOperations
+        }
     }
 
     func snapshot(
@@ -85,13 +104,13 @@ actor LocalRepoManager {
 
         let fetchTargets = self.fetchTargets(
             repoRoots: refreshRoots,
-            fetchInterval: options.fetchInterval,
+            fetchInterval: options.allowNetworkOperations ? options.fetchInterval : 0,
             now: now
         )
 
         let refreshedSnapshot = await LocalProjectsService().snapshot(
             repoRoots: refreshRoots,
-            autoSyncEnabled: options.autoSyncEnabled,
+            autoSyncEnabled: options.allowNetworkOperations && options.autoSyncEnabled,
             includeOnlyRepoNames: nil,
             concurrencyLimit: AppLimits.LocalRepo.snapshotConcurrencyLimit,
             fetchTargets: fetchTargets
@@ -164,16 +183,20 @@ actor LocalRepoManager {
         guard repoRoots.isEmpty == false else { return ([], []) }
 
         let matchKeys = Set(options.matchRepoNames.map { $0.lowercased() })
-        // Scan ALL discovered repos, not just GitHub-matching ones.
-        // This enables the Local filter to show all local repos including local-only ones.
-        // Prioritize GitHub-matching repos first, then include non-matching ones.
-        let interesting: [URL] = {
-            guard !matchKeys.isEmpty else { return repoRoots }
-
+        let matchingPaths: Set<String>
+        let interesting: [URL]
+        if !matchKeys.isEmpty, options.forceRescan == false {
             let matching = repoRoots.filter { matchKeys.contains($0.lastPathComponent.lowercased()) }
-            let nonMatching = repoRoots.filter { !matchKeys.contains($0.lastPathComponent.lowercased()) }
-            return matching + nonMatching
-        }()
+            matchingPaths = Set(matching.map(\.path))
+
+            let cachedNonMatching = repoRoots.filter { repoURL in
+                matchingPaths.contains(repoURL.path) == false && self.statusCache[repoURL.path] != nil
+            }
+            interesting = matching + cachedNonMatching
+        } else {
+            matchingPaths = Set(repoRoots.map(\.path))
+            interesting = repoRoots
+        }
 
         var cached: [LocalRepoStatus] = []
         var refresh: [URL] = []
@@ -183,7 +206,14 @@ actor LocalRepoManager {
         for repoURL in interesting {
             let key = repoURL.path
             guard let entry = self.statusCache[key] else {
-                refresh.append(repoURL)
+                if matchingPaths.contains(key) {
+                    refresh.append(repoURL)
+                }
+                continue
+            }
+
+            if matchingPaths.contains(key) == false {
+                cached.append(entry.status)
                 continue
             }
 
@@ -192,12 +222,15 @@ actor LocalRepoManager {
                 continue
             }
 
-            if options.autoSyncEnabled, entry.status.canAutoSync {
+            if options.allowNetworkOperations, options.autoSyncEnabled, entry.status.canAutoSync {
                 refresh.append(repoURL)
                 continue
             }
 
-            if options.fetchInterval > 0, self.needsFetch(for: repoURL, now: now, interval: options.fetchInterval) {
+            if options.allowNetworkOperations,
+               options.fetchInterval > 0,
+               self.needsFetch(for: repoURL, now: now, interval: options.fetchInterval)
+            {
                 refresh.append(repoURL)
                 continue
             }

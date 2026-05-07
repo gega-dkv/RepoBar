@@ -15,6 +15,7 @@ public struct RepoIssueSummary: Sendable, Hashable {
     public let title: String
     public let url: URL
     public let updatedAt: Date
+    public let createdAt: Date?
     public let authorLogin: String?
     public let authorAvatarURL: URL?
     public let assigneeLogins: [String]
@@ -26,6 +27,7 @@ public struct RepoIssueSummary: Sendable, Hashable {
         title: String,
         url: URL,
         updatedAt: Date,
+        createdAt: Date? = nil,
         authorLogin: String?,
         authorAvatarURL: URL?,
         assigneeLogins: [String],
@@ -36,6 +38,7 @@ public struct RepoIssueSummary: Sendable, Hashable {
         self.title = title
         self.url = url
         self.updatedAt = updatedAt
+        self.createdAt = createdAt
         self.authorLogin = authorLogin
         self.authorAvatarURL = authorAvatarURL
         self.assigneeLogins = assigneeLogins
@@ -49,6 +52,7 @@ public struct RepoPullRequestSummary: Sendable, Hashable {
     public let title: String
     public let url: URL
     public let updatedAt: Date
+    public let createdAt: Date?
     public let authorLogin: String?
     public let authorAvatarURL: URL?
     public let isDraft: Bool
@@ -63,6 +67,7 @@ public struct RepoPullRequestSummary: Sendable, Hashable {
         title: String,
         url: URL,
         updatedAt: Date,
+        createdAt: Date? = nil,
         authorLogin: String?,
         authorAvatarURL: URL?,
         isDraft: Bool,
@@ -76,6 +81,7 @@ public struct RepoPullRequestSummary: Sendable, Hashable {
         self.title = title
         self.url = url
         self.updatedAt = updatedAt
+        self.createdAt = createdAt
         self.authorLogin = authorLogin
         self.authorAvatarURL = authorAvatarURL
         self.isDraft = isDraft

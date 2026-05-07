@@ -5,6 +5,7 @@ public struct UserSettings: Equatable, Codable {
     public var heatmap = HeatmapSettings()
     public var repoList = RepoListSettings()
     public var localProjects = LocalProjectsSettings()
+    public var issueNumberMonitor = IssueNumberMonitorSettings()
     public var githubArchives = GitHubArchiveSettings()
     public var menuCustomization = MenuCustomization()
     public var refreshInterval: RefreshInterval = .fiveMinutes
@@ -25,6 +26,7 @@ public struct UserSettings: Equatable, Codable {
         case heatmap
         case repoList
         case localProjects
+        case issueNumberMonitor
         case githubArchives
         case menuCustomization
         case refreshInterval
@@ -45,6 +47,7 @@ public struct UserSettings: Equatable, Codable {
         self.heatmap = try container.decodeIfPresent(HeatmapSettings.self, forKey: .heatmap) ?? HeatmapSettings()
         self.repoList = try container.decodeIfPresent(RepoListSettings.self, forKey: .repoList) ?? RepoListSettings()
         self.localProjects = try container.decodeIfPresent(LocalProjectsSettings.self, forKey: .localProjects) ?? LocalProjectsSettings()
+        self.issueNumberMonitor = try container.decodeIfPresent(IssueNumberMonitorSettings.self, forKey: .issueNumberMonitor) ?? IssueNumberMonitorSettings()
         self.githubArchives = try container.decodeIfPresent(GitHubArchiveSettings.self, forKey: .githubArchives) ?? GitHubArchiveSettings()
         self.menuCustomization = try container.decodeIfPresent(MenuCustomization.self, forKey: .menuCustomization) ?? MenuCustomization()
         self.refreshInterval = try container.decodeIfPresent(RefreshInterval.self, forKey: .refreshInterval) ?? .fiveMinutes
@@ -65,6 +68,7 @@ public struct UserSettings: Equatable, Codable {
         try container.encode(self.heatmap, forKey: .heatmap)
         try container.encode(self.repoList, forKey: .repoList)
         try container.encode(self.localProjects, forKey: .localProjects)
+        try container.encode(self.issueNumberMonitor, forKey: .issueNumberMonitor)
         try container.encode(self.githubArchives, forKey: .githubArchives)
         try container.encode(self.menuCustomization, forKey: .menuCustomization)
         try container.encode(self.refreshInterval, forKey: .refreshInterval)
@@ -155,6 +159,12 @@ public struct LocalProjectsSettings: Equatable, Codable {
             self.rootPath = "~/Projects"
         #endif
     }
+}
+
+public struct IssueNumberMonitorSettings: Equatable, Codable, Sendable {
+    public var enabled = false
+
+    public init() {}
 }
 
 public struct GitHubArchiveSettings: Equatable, Codable, Sendable {

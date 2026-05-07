@@ -267,19 +267,32 @@
     }
 
     private struct GitRunner {
+        let timeout: TimeInterval = LocalProjectsConstants.gitCommandTimeout
+
         func run(_ arguments: [String], in directory: URL) throws -> String {
             let process = Process()
             process.executableURL = GitExecutableLocator.shared.url
             process.arguments = arguments
             process.currentDirectoryURL = directory
+            process.environment = self.environment()
 
             let outputPipe = Pipe()
             let errorPipe = Pipe()
             process.standardOutput = outputPipe
             process.standardError = errorPipe
 
+            let didExit = DispatchSemaphore(value: 0)
+            process.terminationHandler = { _ in
+                didExit.signal()
+            }
+
             try process.run()
-            process.waitUntilExit()
+            let timeoutResult = didExit.wait(timeout: .now() + self.timeout)
+            if timeoutResult == .timedOut {
+                process.terminate()
+                _ = didExit.wait(timeout: .now() + 1)
+                throw GitRunnerError.timedOut(arguments: arguments, timeout: self.timeout)
+            }
 
             let output = String(data: outputPipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
             if process.terminationStatus != 0 {
@@ -288,10 +301,18 @@
             }
             return output
         }
+
+        private func environment() -> [String: String] {
+            var environment = ProcessInfo.processInfo.environment
+            environment["GIT_TERMINAL_PROMPT"] = "0"
+            environment["GIT_OPTIONAL_LOCKS"] = "0"
+            return environment
+        }
     }
 
     private enum GitRunnerError: Error {
         case commandFailed(output: String, error: String)
+        case timedOut(arguments: [String], timeout: TimeInterval)
     }
 
     private struct GitRemote {

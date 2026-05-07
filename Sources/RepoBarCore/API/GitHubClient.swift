@@ -88,6 +88,21 @@ public actor GitHubClient {
         return await self.repoDetailCoordinator.cachedRepositories(from: items)
     }
 
+    public func cachedReferenceMatches(
+        query: GitHubReferenceQuery,
+        repositories: [Repository],
+        limit: Int = 20
+    ) async -> [GitHubReferenceMatch] {
+        await self.restAPI.cachedReferenceMatches(query: query, repositories: repositories, limit: limit)
+    }
+
+    public func liveReferenceMatch(
+        query: GitHubReferenceQuery,
+        repositories: [Repository]
+    ) async -> GitHubReferenceMatch? {
+        await self.restAPI.liveReferenceMatch(query: query, repositories: repositories)
+    }
+
     public func defaultRepositories(limit: Int, for _: String) async throws -> [Repository] {
         let repos = try await self.restAPI.userReposSorted(limit: max(limit, 10))
         await self.repoDetailCoordinator.updateDiscussionsCapability(
@@ -276,6 +291,7 @@ public actor GitHubClient {
             lastRateLimitError: requestDiagnostics.lastRateLimitError,
             etagEntries: requestDiagnostics.etagEntries,
             backoffEntries: requestDiagnostics.backoffEntries,
+            endpointCooldowns: requestDiagnostics.endpointCooldowns,
             restRateLimit: requestDiagnostics.restRateLimit,
             graphQLRateLimit: graphQLRateLimit,
             rateLimitResources: requestDiagnostics.rateLimitResources
@@ -487,9 +503,32 @@ public struct DiagnosticsSummary: Sendable {
     public let lastRateLimitError: String?
     public let etagEntries: Int
     public let backoffEntries: Int
+    public let endpointCooldowns: [EndpointCooldownSummary]
     public let restRateLimit: RateLimitSnapshot?
     public let graphQLRateLimit: RateLimitSnapshot?
     public let rateLimitResources: RateLimitResourcesSnapshot?
+
+    public init(
+        apiHost: URL,
+        rateLimitReset: Date?,
+        lastRateLimitError: String?,
+        etagEntries: Int,
+        backoffEntries: Int,
+        endpointCooldowns: [EndpointCooldownSummary] = [],
+        restRateLimit: RateLimitSnapshot?,
+        graphQLRateLimit: RateLimitSnapshot?,
+        rateLimitResources: RateLimitResourcesSnapshot?
+    ) {
+        self.apiHost = apiHost
+        self.rateLimitReset = rateLimitReset
+        self.lastRateLimitError = lastRateLimitError
+        self.etagEntries = etagEntries
+        self.backoffEntries = backoffEntries
+        self.endpointCooldowns = endpointCooldowns
+        self.restRateLimit = restRateLimit
+        self.graphQLRateLimit = graphQLRateLimit
+        self.rateLimitResources = rateLimitResources
+    }
 
     public static let empty = DiagnosticsSummary(
         apiHost: URL(string: "https://api.github.com")!,
@@ -497,8 +536,28 @@ public struct DiagnosticsSummary: Sendable {
         lastRateLimitError: nil,
         etagEntries: 0,
         backoffEntries: 0,
+        endpointCooldowns: [],
         restRateLimit: nil,
         graphQLRateLimit: nil,
         rateLimitResources: nil
     )
+}
+
+public struct EndpointCooldownSummary: Codable, Equatable, Hashable, Sendable {
+    public let endpoint: String
+    public let repository: String?
+    public let url: String
+    public let retryAfter: Date
+
+    public init(
+        endpoint: String,
+        repository: String?,
+        url: String,
+        retryAfter: Date
+    ) {
+        self.endpoint = endpoint
+        self.repository = repository
+        self.url = url
+        self.retryAfter = retryAfter
+    }
 }

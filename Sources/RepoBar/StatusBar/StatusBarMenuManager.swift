@@ -7,8 +7,11 @@ import RepoBarCore
 final class StatusBarMenuManager: NSObject, NSMenuDelegate {
     private static let minimumMainMenuItems = 3
     let appState: AppState
+    private let statusBar: NSStatusBar
     private var mainMenu: NSMenu?
-    private weak var statusItem: NSStatusItem?
+    var statusItem: NSStatusItem?
+    var keyboardIssueStatusItem: NSStatusItem?
+    private var keyboardIssueMenu: NSMenu?
     private lazy var menuBuilder = StatusBarMenuBuilder(appState: self.appState, target: self)
     private let menuItemFactory = MenuItemViewFactory()
     lazy var recentMenuService = RecentMenuService(github: self.appState.github)
@@ -49,8 +52,9 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
 
     private weak var checkoutProgressWindow: NSWindow?
 
-    init(appState: AppState) {
+    init(appState: AppState, statusBar: NSStatusBar = .system) {
         self.appState = appState
+        self.statusBar = statusBar
         super.init()
         NotificationCenter.default.addObserver(
             self,
@@ -76,10 +80,27 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
             name: .recentListFiltersDidChange,
             object: nil
         )
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(self.keyboardIssueMatchChanged),
+            name: .keyboardIssueMatchDidChange,
+            object: nil
+        )
     }
 
     var isAttached: Bool {
         self.statusItem != nil
+    }
+
+    func ensureStatusItems() {
+        if self.statusItem == nil {
+            let item = self.statusBar.statusItem(withLength: NSStatusItem.variableLength)
+            item.autosaveName = "repobar-main"
+            item.isVisible = true
+            item.button?.imageScaling = .scaleNone
+            self.attachMainMenu(to: item)
+            return
+        }
     }
 
     func attachMainMenu(to statusItem: NSStatusItem) {
@@ -165,6 +186,108 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
         self.recentListCoordinator.handleFilterChanges()
     }
 
+    @objc private func keyboardIssueMatchChanged() {
+        // Keep the reference resolver active, but do not mutate status items until
+        // the multi-item AppKit click regression is fixed.
+    }
+
+    private func syncKeyboardIssueStatusItem() {
+        self.keyboardIssueStatusItem?.isVisible = false
+    }
+
+    private func lazyKeyboardIssueStatusItem() -> NSStatusItem {
+        if let item = self.keyboardIssueStatusItem {
+            return item
+        }
+
+        let item = self.statusBar.statusItem(withLength: NSStatusItem.variableLength)
+        item.autosaveName = "repobar-github-reference"
+        item.isVisible = false
+        item.button?.imageScaling = .scaleNone
+        self.keyboardIssueStatusItem = item
+        return item
+    }
+
+    private func lazyKeyboardIssueMenu() -> NSMenu {
+        if let menu = self.keyboardIssueMenu {
+            return menu
+        }
+
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.delegate = self
+        self.keyboardIssueMenu = menu
+        return menu
+    }
+
+    private func populateKeyboardIssueMenu(_ menu: NSMenu, match: GitHubReferenceMatch) {
+        menu.removeAllItems()
+
+        let openTitle = "Open \(match.query.displayText) in Browser"
+        let openItem = NSMenuItem(title: openTitle, action: #selector(self.openKeyboardIssueMatch(_:)), keyEquivalent: "")
+        openItem.target = self
+        openItem.representedObject = match.url
+        openItem.image = NSImage(systemSymbolName: self.keyboardIssueSystemImage(for: match), accessibilityDescription: match.kind.label)
+        openItem.image?.isTemplate = true
+        menu.addItem(openItem)
+
+        let titleItem = NSMenuItem(title: self.keyboardIssueMenuTitle(for: match), action: nil, keyEquivalent: "")
+        titleItem.isEnabled = false
+        menu.addItem(titleItem)
+
+        let repoItem = NSMenuItem(title: match.repositoryFullName, action: nil, keyEquivalent: "")
+        repoItem.isEnabled = false
+        menu.addItem(repoItem)
+
+        menu.addItem(.separator())
+
+        let copyItem = NSMenuItem(title: "Copy URL", action: #selector(self.copyKeyboardIssueURL(_:)), keyEquivalent: "")
+        copyItem.target = self
+        copyItem.representedObject = match.url
+        copyItem.image = NSImage(systemSymbolName: "doc.on.doc", accessibilityDescription: "Copy URL")
+        copyItem.image?.isTemplate = true
+        menu.addItem(copyItem)
+    }
+
+    private func keyboardIssueMenuTitle(for match: GitHubReferenceMatch) -> String {
+        let state = match.state.map { "\($0.label) " } ?? ""
+        let kind = match.kind.label
+        return "\(state)\(kind): \(match.title)"
+    }
+
+    private func refreshKeyboardIssueMenuIfNeeded(_ menu: NSMenu) {
+        guard menu === self.keyboardIssueMenu,
+              let match = self.appState.session.keyboardIssueMatch
+        else {
+            return
+        }
+
+        self.populateKeyboardIssueMenu(menu, match: match)
+    }
+
+    private func keyboardIssueSystemImage(for match: GitHubReferenceMatch) -> String {
+        switch match.kind {
+        case .issue:
+            match.state == .closed ? "checkmark.circle" : "exclamationmark.circle"
+        case .pullRequest:
+            match.state == .closed ? "arrow.triangle.merge" : "arrow.triangle.branch.circle"
+        case .commit:
+            "number.square"
+        }
+    }
+
+    private func keyboardIssueTitle(for match: GitHubReferenceMatch) -> String {
+        let state = match.state?.label
+        let prefix = [match.query.displayText, state, match.repositoryFullName]
+            .compactMap(\.self)
+            .joined(separator: " ")
+        let maxTitleLength = 44
+        let title = match.title.count > maxTitleLength
+            ? "\(match.title.prefix(maxTitleLength))…"
+            : match.title
+        return "\(prefix): \(title)"
+    }
+
     private func applyStatusItemAppearance() {
         guard let button = self.statusItem?.button else { return }
 
@@ -208,7 +331,8 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
     }
 
     private func setButtonTitle(_ title: String?, for button: NSStatusBarButton) {
-        let value = title ?? ""
+        let rawValue = title ?? ""
+        let value = rawValue.isEmpty || button.image == nil ? rawValue : " \(rawValue)"
         if button.title != value {
             button.title = value
         }
@@ -247,7 +371,11 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
     func menuWillOpen(_ menu: NSMenu) {
         let signpost = self.signposter.beginInterval("menuWillOpen")
         defer { self.signposter.endInterval("menuWillOpen", signpost) }
-        if menu === self.mainMenu {
+        if menu === self.keyboardIssueMenu {
+            self.logMenuEvent("menuWillOpen keyboardIssueMenu items=\(menu.items.count)")
+            self.refreshKeyboardIssueMenuIfNeeded(menu)
+            return
+        } else if menu === self.mainMenu {
             self.logMenuEvent("menuWillOpen mainMenu items=\(menu.items.count)")
         } else {
             self.logMenuEvent("menuWillOpen submenu items=\(menu.items.count)")
@@ -290,14 +418,18 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
                 self.logMenuEvent("menuWillOpen mainMenu invalidating cache: items=\(menu.items.count)")
                 self.lastMainMenuSignature = nil
             }
+            var didRebuildMenu = false
             if self.lastMainMenuSignature != plan.signature || menu.items.isEmpty || isMenuTooSmall {
                 self.menuBuilder.populateMainMenu(menu, repos: plan.repos)
                 self.lastMainMenuSignature = plan.signature
+                didRebuildMenu = true
             }
-            if let cachedWidth = self.lastMainMenuWidth {
-                self.menuBuilder.refreshMenuViewHeights(in: menu, width: cachedWidth)
-            } else {
-                self.menuBuilder.refreshMenuViewHeights(in: menu)
+            if didRebuildMenu {
+                if let cachedWidth = self.lastMainMenuWidth {
+                    self.menuBuilder.refreshMenuViewHeights(in: menu, width: cachedWidth)
+                } else {
+                    self.menuBuilder.refreshMenuViewHeights(in: menu)
+                }
             }
 
             let repoFullNames = Set(menu.items.compactMap { $0.representedObject as? String }.filter { $0.contains("/") })
@@ -313,9 +445,8 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
                     let shouldRemeasure = priorWidth == nil || abs(measuredWidth - (priorWidth ?? 0)) > 0.5
                     self.lastMainMenuWidth = measuredWidth
                     self.lastMainMenuWidthSignature = plan.signature
-                    if shouldRemeasure {
+                    if shouldRemeasure, didRebuildMenu {
                         self.menuBuilder.refreshMenuViewHeights(in: menu, width: measuredWidth)
-                        menu.update()
                     }
                 }
                 self.menuBuilder.clearHighlights(in: menu)
@@ -517,6 +648,29 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
         }
     }
 
+    @objc func openKeyboardIssueMatch(_ sender: Any?) {
+        let representedURL = (sender as? NSMenuItem)?.representedObject as? URL
+        guard let url = representedURL ?? self.appState.session.keyboardIssueMatch?.url else {
+            self.logMenuEvent("keyboard reference click ignored: no URL")
+            return
+        }
+
+        self.logMenuEvent("keyboard reference click open url=\(url.absoluteString)")
+        self.open(url: url)
+    }
+
+    @objc func copyKeyboardIssueURL(_ sender: Any?) {
+        let representedURL = (sender as? NSMenuItem)?.representedObject as? URL
+        guard let url = representedURL ?? self.appState.session.keyboardIssueMatch?.url else {
+            self.logMenuEvent("keyboard reference copy ignored: no URL")
+            return
+        }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(url.absoluteString, forType: .string)
+        self.logMenuEvent("keyboard reference copied url=\(url.absoluteString)")
+    }
+
     @objc func menuItemNoOp(_: NSMenuItem) {}
 
     #if DEBUG
@@ -538,6 +692,18 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
 
         func isRecentListMenu(_ menu: NSMenu) -> Bool {
             self.recentListCoordinator.containsMenuForTesting(menu)
+        }
+
+        func syncKeyboardIssueStatusItemForTesting() {
+            self.syncKeyboardIssueStatusItem()
+        }
+
+        func keyboardIssueStatusItemForTesting() -> NSStatusItem? {
+            self.keyboardIssueStatusItem
+        }
+
+        func keyboardIssueMenuForTesting() -> NSMenu? {
+            self.keyboardIssueMenu
         }
     #endif
 }

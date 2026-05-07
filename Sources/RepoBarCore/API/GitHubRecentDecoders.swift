@@ -9,6 +9,7 @@ enum GitHubRecentDecoders {
                 title: $0.title,
                 url: $0.htmlUrl,
                 updatedAt: $0.updatedAt,
+                createdAt: $0.createdAt,
                 authorLogin: $0.user?.login,
                 authorAvatarURL: $0.user?.avatarUrl,
                 isDraft: $0.draft ?? false,
@@ -40,6 +41,7 @@ enum GitHubRecentDecoders {
                     title: $0.title,
                     url: $0.htmlUrl,
                     updatedAt: $0.updatedAt,
+                    createdAt: $0.createdAt,
                     authorLogin: $0.user?.login,
                     authorAvatarURL: $0.user?.avatarUrl,
                     assigneeLogins: ($0.assignees ?? []).compactMap(\.login),
@@ -188,6 +190,7 @@ enum GitHubRecentDecoders {
         let title: String
         let htmlUrl: URL
         let updatedAt: Date
+        let createdAt: Date?
         let user: RecentUser?
         let draft: Bool?
         let comments: Int?
@@ -200,6 +203,7 @@ enum GitHubRecentDecoders {
             case number, title, user, draft, comments, labels, head, base
             case htmlUrl = "html_url"
             case updatedAt = "updated_at"
+            case createdAt = "created_at"
             case reviewComments = "review_comments"
         }
     }
@@ -217,6 +221,7 @@ enum GitHubRecentDecoders {
         let title: String
         let htmlUrl: URL
         let updatedAt: Date
+        let createdAt: Date?
         let comments: Int
         let user: RecentUser?
         let labels: [IssueLabel]
@@ -227,6 +232,7 @@ enum GitHubRecentDecoders {
             case number, title, user, comments, labels, assignees
             case htmlUrl = "html_url"
             case updatedAt = "updated_at"
+            case createdAt = "created_at"
             case pullRequest = "pull_request"
         }
     }

@@ -14,11 +14,14 @@ final class AppState {
     let refreshScheduler = RefreshScheduler()
     let settingsStore = SettingsStore()
     let localRepoManager = LocalRepoManager()
+    let accessibilityPermission = AccessibilityPermissionManager()
     let menuRefreshInterval: TimeInterval = 30
     var refreshTask: Task<Void, Never>?
     var localProjectsTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
+    private var accessibilityPermissionTask: Task<Void, Never>?
     var menuRefreshTask: Task<Void, Never>?
+    private var keyboardIssueMonitor: KeyboardIssueMonitor?
     var refreshTaskToken = UUID()
     let hydrateConcurrencyLimit = 4
     var prefetchTask: Task<Void, Never>?
@@ -82,6 +85,17 @@ final class AppState {
             try? await Task.sleep(for: .milliseconds(250))
             await self?.refreshRateLimitDisplayState()
         }
+        self.accessibilityPermissionTask = Task { [weak self] in
+            guard let self else { return }
+
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(2))
+                if self.accessibilityPermission.refresh() {
+                    self.updateKeyboardIssueMonitor()
+                }
+            }
+        }
+        self.updateKeyboardIssueMonitor()
     }
 
     struct GlobalActivityResult {
@@ -117,5 +131,79 @@ final class AppState {
 
     func persistSettings() {
         self.settingsStore.save(self.session.settings)
+    }
+
+    func updateKeyboardIssueMonitor() {
+        guard self.session.settings.issueNumberMonitor.enabled else {
+            Task { await DiagnosticsLogger.shared.message("keyboard reference monitor disabled") }
+            self.keyboardIssueMonitor?.stop()
+            self.keyboardIssueMonitor = nil
+            self.setKeyboardIssueMatch(nil)
+            return
+        }
+
+        if self.keyboardIssueMonitor == nil {
+            Task { await DiagnosticsLogger.shared.message("keyboard reference monitor created") }
+            self.keyboardIssueMonitor = KeyboardIssueMonitor { [weak self] query in
+                await self?.resolveTypedGitHubReference(query)
+            }
+        }
+        let includeKeyboardEvents = self.accessibilityPermission.isTrusted
+        let mode = includeKeyboardEvents ? "keyboard+clipboard" : "clipboard-only"
+        Task { await DiagnosticsLogger.shared.message("GitHub reference monitor started mode=\(mode)") }
+        self.keyboardIssueMonitor?.start(includeKeyboardEvents: includeKeyboardEvents)
+    }
+
+    private func resolveTypedGitHubReference(_ query: GitHubReferenceQuery) async {
+        guard self.session.settings.issueNumberMonitor.enabled else { return }
+
+        let repositories = self.githubReferenceCandidateRepositories()
+        let candidateRepositories = if let repositoryFullName = query.repositoryFullName {
+            repositories.filter { $0.fullName.caseInsensitiveCompare(repositoryFullName) == .orderedSame }
+        } else {
+            repositories
+        }
+        guard candidateRepositories.isEmpty == false else {
+            self.setKeyboardIssueMatch(nil)
+            return
+        }
+
+        let cachedMatches = await self.github.cachedReferenceMatches(
+            query: query,
+            repositories: candidateRepositories,
+            limit: AppLimits.IssueNumberMonitor.cacheLookupLimit
+        )
+        if let match = GitHubReferenceMatch.newestCreated(in: cachedMatches) {
+            self.setKeyboardIssueMatch(match)
+            return
+        }
+
+        let liveMatch = await self.github.liveReferenceMatch(
+            query: query,
+            repositories: Array(candidateRepositories.prefix(AppLimits.IssueNumberMonitor.liveLookupLimit))
+        )
+        self.setKeyboardIssueMatch(liveMatch)
+    }
+
+    private func githubReferenceCandidateRepositories() -> [Repository] {
+        let sources = [
+            self.session.accessibleRepositories,
+            self.session.repositories,
+            self.session.menuSnapshot?.repositories ?? []
+        ]
+        let repositories = sources.first(where: { $0.isEmpty == false }) ?? []
+        var seen: Set<String> = []
+        return repositories.filter { repo in
+            guard repo.viewerCanRead else { return false }
+
+            return seen.insert(repo.fullName.lowercased()).inserted
+        }
+    }
+
+    private func setKeyboardIssueMatch(_ match: GitHubReferenceMatch?) {
+        guard self.session.keyboardIssueMatch != match else { return }
+
+        self.session.keyboardIssueMatch = match
+        NotificationCenter.default.post(name: .keyboardIssueMatchDidChange, object: nil)
     }
 }

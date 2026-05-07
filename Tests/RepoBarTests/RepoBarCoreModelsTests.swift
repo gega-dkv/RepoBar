@@ -115,6 +115,51 @@ struct RepoBarCoreModelsTests {
     }
 
     @Test
+    func `github reference matches prefer newest created date`() throws {
+        let url = try #require(URL(string: "https://example.com"))
+        let older = GitHubReferenceMatch(
+            query: .issueNumber(42),
+            title: "Older",
+            url: url,
+            repositoryFullName: "owner/old",
+            kind: .issue,
+            state: .open,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10),
+            updatedAt: Date(timeIntervalSinceReferenceDate: 100)
+        )
+        let newer = GitHubReferenceMatch(
+            query: .issueNumber(42),
+            title: "Newer",
+            url: url,
+            repositoryFullName: "owner/new",
+            kind: .pullRequest,
+            state: .closed,
+            createdAt: Date(timeIntervalSinceReferenceDate: 20),
+            updatedAt: Date(timeIntervalSinceReferenceDate: 30)
+        )
+
+        #expect(GitHubReferenceMatch.newestCreated(in: [older, newer])?.repositoryFullName == "owner/new")
+    }
+
+    @Test
+    func `github reference query display text`() {
+        #expect(GitHubReferenceQuery.issueNumber(7).displayText == "#7")
+        #expect(
+            GitHubReferenceQuery.repositoryIssueNumber(
+                repositoryFullName: "openclaw/openclaw",
+                number: 73655
+            ).displayText == "openclaw/openclaw#73655"
+        )
+        #expect(GitHubReferenceQuery.commitHash("ffd212ca43abcdef").displayText == "ffd212ca43")
+        #expect(
+            GitHubReferenceQuery.repositoryCommitHash(
+                repositoryFullName: "openclaw/openclaw",
+                hash: "ffd212ca43abcdef"
+            ).displayText == "openclaw/openclaw@ffd212ca43"
+        )
+    }
+
+    @Test
     func `backoff tracker lifecycle`() async throws {
         let tracker = BackoffTracker()
         let url = try #require(URL(string: "https://example.com"))

@@ -168,6 +168,45 @@ struct AdvancedSettingsView: View {
             }
 
             Section {
+                Toggle("Watch GitHub references", isOn: self.$session.settings.issueNumberMonitor.enabled)
+                    .onChange(of: self.session.settings.issueNumberMonitor.enabled) { _, _ in
+                        self.appState.persistSettings()
+                        self.appState.updateKeyboardIssueMonitor()
+                    }
+
+                LabeledContent("Accessibility") {
+                    HStack(spacing: 8) {
+                        Image(systemName: self.accessibilityStatusIcon)
+                            .foregroundStyle(self.accessibilityStatusColor)
+                        Text(self.accessibilityStatusLabel)
+                            .foregroundStyle(self.accessibilityStatusColor)
+                    }
+                }
+
+                if self.appState.accessibilityPermission.isTrusted == false {
+                    HStack(spacing: 10) {
+                        Button("Grant Accessibility") {
+                            self.appState.accessibilityPermission.requestPrompt()
+                            self.appState.updateKeyboardIssueMonitor()
+                        }
+                        .buttonStyle(.borderedProminent)
+
+                        Button("Open Settings") {
+                            self.appState.accessibilityPermission.openSystemSettings()
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+            } header: {
+                Text("GitHub Reference Watcher")
+            } footer: {
+                Text(
+                    "Watches copied GitHub URLs plus typed issue numbers and commit hashes, then shows the best cached or live match in a separate menu bar item. " +
+                        "Copied URLs work without Accessibility; grant Accessibility for typed references."
+                )
+            }
+
+            Section {
                 HStack(spacing: 10) {
                     Button {
                         Task { await self.installCLI() }
@@ -215,6 +254,8 @@ struct AdvancedSettingsView: View {
         .padding(.vertical, 16)
         .onAppear {
             self.ensurePreferredTerminal()
+            _ = self.appState.accessibilityPermission.refresh()
+            self.appState.updateKeyboardIssueMonitor()
             self.appState.refreshLocalProjects()
             self.cliStatus = self.currentCLIStatus()
         }
@@ -274,6 +315,18 @@ struct AdvancedSettingsView: View {
             }
         }
         return matched
+    }
+
+    private var accessibilityStatusLabel: String {
+        self.appState.accessibilityPermission.isTrusted ? "Granted" : "Required"
+    }
+
+    private var accessibilityStatusIcon: String {
+        self.appState.accessibilityPermission.isTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
+    }
+
+    private var accessibilityStatusColor: Color {
+        self.appState.accessibilityPermission.isTrusted ? .green : .orange
     }
 
     // MARK: - CLI installer

@@ -49,6 +49,12 @@ public enum RateLimitStatusFormatter {
         if let reset = diagnostics.rateLimitReset {
             return "Limited · resets \(RelativeFormatter.string(from: reset, relativeTo: now))"
         }
+        if let cooldown = diagnostics.endpointCooldowns
+            .filter({ $0.retryAfter > now })
+            .sorted(by: { $0.retryAfter < $1.retryAfter })
+            .first {
+            return "Endpoint cooldown · \(Self.endpointCooldownText(cooldown, now: now))"
+        }
 
         var rows: [String] = []
         if let rest = diagnostics.restRateLimit {
@@ -93,6 +99,13 @@ public enum RateLimitStatusFormatter {
         }
         if currentRows.isEmpty == false {
             sections.append(RateLimitDisplaySection(title: nil, rows: currentRows))
+        }
+        let endpointCooldowns = diagnostics.endpointCooldowns.filter { $0.retryAfter > now }
+        if endpointCooldowns.isEmpty == false {
+            sections.append(RateLimitDisplaySection(
+                title: "Endpoint Cooldowns",
+                rows: endpointCooldowns.map { Self.endpointCooldownText($0, now: now) }
+            ))
         }
 
         if let cacheSummary {
@@ -164,6 +177,16 @@ public enum RateLimitStatusFormatter {
             rows.append(response)
         }
         return rows
+    }
+
+    private static func endpointCooldownText(_ cooldown: EndpointCooldownSummary, now: Date) -> String {
+        let label = if let repository = cooldown.repository {
+            "\(repository) \(cooldown.endpoint)"
+        } else {
+            cooldown.endpoint
+        }
+
+        return "\(label) · retry \(RelativeFormatter.string(from: cooldown.retryAfter, relativeTo: now))"
     }
 
     private static func sortedResources<T>(_ resources: [String: T]) -> [(String, T)] {

@@ -15,6 +15,7 @@ struct RepoItem: Decodable {
     let stargazersCount: Int
     let forksCount: Int
     let pushedAt: Date?
+    let permissions: RepoItemPermissions?
     let owner: Owner
 
     struct Owner: Decodable { let login: String }
@@ -29,7 +30,19 @@ struct RepoItem: Decodable {
         case stargazersCount = "stargazers_count"
         case forksCount = "forks_count"
         case pushedAt = "pushed_at"
+        case permissions
         case owner
+    }
+}
+
+struct RepoItemPermissions: Decodable {
+    let admin: Bool?
+    let maintain: Bool?
+    let push: Bool?
+    let pull: Bool?
+
+    var hasReadAccess: Bool {
+        self.admin == true || self.maintain == true || self.push == true || self.pull == true
     }
 }
 

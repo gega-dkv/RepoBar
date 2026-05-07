@@ -569,7 +569,7 @@ struct GitHubRestAPI {
         return collected
     }
 
-    private func authorizedGet(
+    func authorizedGet(
         url: URL,
         token: String,
         allowedStatuses: Set<Int> = [200, 304],

@@ -18,6 +18,11 @@ actor BackoffTracker {
         return nil
     }
 
+    func activeCooldowns(now: Date = Date()) -> [String: Date] {
+        self.cooldowns = self.cooldowns.filter { $0.value > now }
+        return self.cooldowns
+    }
+
     func setCooldown(url: URL, until: Date) {
         self.cooldowns[url.absoluteString] = until
     }

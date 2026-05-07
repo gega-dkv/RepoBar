@@ -5,4 +5,5 @@ extension Notification.Name {
     static let menuRepositoriesDidChange = Notification.Name("menuRepositoriesDidChange")
     static let menuDiagnosticsDidChange = Notification.Name("menuDiagnosticsDidChange")
     static let recentListFiltersDidChange = Notification.Name("recentListFiltersDidChange")
+    static let keyboardIssueMatchDidChange = Notification.Name("keyboardIssueMatchDidChange")
 }

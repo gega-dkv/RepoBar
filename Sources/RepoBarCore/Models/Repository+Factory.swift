@@ -23,6 +23,7 @@ extension Repository {
             owner: item.owner.login,
             isFork: item.fork,
             isArchived: item.archived,
+            viewerCanRead: item.permissions?.hasReadAccess ?? true,
             sortOrder: nil,
             error: error,
             rateLimitedUntil: rateLimitedUntil,

@@ -90,6 +90,8 @@ RepoBar is designed to open from local data first and spend GitHub requests care
 
 It stores REST ETags, response bodies, GraphQL responses, recent lists, repository detail data, and rate-limit state in RepoBar-owned storage. First-open menu rows can be seeded from the persistent cache, then refreshed in the background.
 
+The optional typed GitHub reference monitor is cache-first too: when enabled in Advanced settings, RepoBar watches issue-number patterns and commit-like hashes, looks for matching cached issues, pull requests, or commits in accessible repositories, and falls back to live GitHub lookups on cache misses. The best match appears as a separate menu bar item that opens in your default browser. Global monitoring requires granting RepoBar Accessibility permission in System Settings.
+
 ### Sync With Gitcrawl Archives
 
 RepoBar reads GitHub backup archives that follow the [gitcrawl.sh](https://gitcrawl.sh) portable-store format — a Git-backed SQLite snapshot with `manifest.json` plus `tables/<table>/*.jsonl(.gz)` files. Point RepoBar at any compatible snapshot repository and it imports cleanly into its own SQLite cache.

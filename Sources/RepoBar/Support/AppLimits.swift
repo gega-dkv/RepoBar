@@ -29,6 +29,14 @@ enum AppLimits {
         static let issueLabelChipLimit: Int = 6
     }
 
+    enum IssueNumberMonitor {
+        static let minimumBareDigits = 1
+        static let maximumTokenLength = 48
+        static let resetDelay: TimeInterval = 1.25
+        static let cacheLookupLimit = 20
+        static let liveLookupLimit = 80
+    }
+
     enum RepoCommits {
         static let previewLimit: Int = 5
         static let moreLimit: Int = 25
