@@ -10,7 +10,7 @@ final class AppState {
     var session = Session()
     let auth = OAuthCoordinator()
     let patAuth = PATAuthenticator()
-    let github = GitHubClient()
+    let github = RepositoryServiceRouter()
     let refreshScheduler = RefreshScheduler()
     let settingsStore = SettingsStore()
     let localRepoManager = LocalRepoManager()
@@ -44,10 +44,15 @@ final class AppState {
             verbosity: self.session.settings.loggingVerbosity,
             fileLoggingEnabled: self.session.settings.fileLoggingEnabled
         )
-        let storedOAuthTokens = self.auth.loadTokens()
-        let storedPAT = self.patAuth.loadPAT()
-        self.session.hasStoredTokens = (storedOAuthTokens != nil) || (storedPAT != nil)
-        let inferredAuthMethod: AuthMethod = storedPAT != nil ? .pat : .oauth
+        let initialProvider = self.session.settings.selectedProvider
+        let initialHost = Self.credentialHost(from: self.session.settings)
+        let storedOAuthTokens = initialProvider == .github ? self.auth.loadTokens(host: initialHost) : nil
+        let storedPAT = initialProvider == .github
+            ? self.patAuth.loadPAT(host: initialHost)
+            : (try? TokenStore.shared.loadCredential(provider: initialProvider, host: initialHost, kind: .pat))?.token
+        let storedAPIToken = (try? TokenStore.shared.loadCredential(provider: initialProvider, host: initialHost, kind: .apiToken)) != nil
+        self.session.hasStoredTokens = (storedOAuthTokens != nil) || (storedPAT != nil) || storedAPIToken
+        let inferredAuthMethod: AuthMethod = storedAPIToken ? .apiToken : (storedPAT != nil ? .pat : .oauth)
         if self.session.settings.authMethod != inferredAuthMethod {
             self.session.settings.authMethod = inferredAuthMethod
             self.settingsStore.save(self.session.settings)
@@ -55,24 +60,58 @@ final class AppState {
         // Capture tokenStore separately for Sendable compliance
         let tokenStore = TokenStore.shared
         Task {
+            await self.github.setProvider(initialProvider)
+            await self.github.setAPIHost(Self.apiHost(from: self.session.settings))
             await self.github.setTokenProvider { @Sendable [weak self] () async throws -> OAuthTokens? in
                 guard let self else { return nil }
 
-                let authMethod = await MainActor.run { self.session.settings.authMethod }
-                if authMethod == .pat {
-                    if let pat = try? tokenStore.loadPAT() {
+                let (provider, authMethod, host) = await MainActor.run {
+                    (
+                        self.session.settings.selectedProvider,
+                        self.session.settings.authMethod,
+                        Self.credentialHost(from: self.session.settings)
+                    )
+                }
+                switch (provider, authMethod) {
+                case (.github, .pat):
+                    if let pat = try? tokenStore.loadPAT(provider: .github, host: host) {
                         return OAuthTokens(accessToken: pat, refreshToken: "", expiresAt: nil)
                     }
+                case (.github, .oauth):
+                    return try? await self.auth.refreshIfNeeded(host: host)
+                case (.gitlab, .pat):
+                    if let credential = try? tokenStore.loadCredential(provider: .gitlab, host: host, kind: .pat) {
+                        return OAuthTokens(accessToken: credential.token, refreshToken: "", expiresAt: nil)
+                    }
+                case (.gitlab, .oauth):
+                    if let credential = try? tokenStore.loadCredential(provider: .gitlab, host: host, kind: .oauth) {
+                        return OAuthTokens(
+                            accessToken: credential.token,
+                            refreshToken: credential.refreshToken ?? "",
+                            expiresAt: credential.expiresAt
+                        )
+                    }
+                case (.bitbucketCloud, .apiToken):
+                    if let credential = try? tokenStore.loadCredential(provider: .bitbucketCloud, host: host, kind: .apiToken) {
+                        return OAuthTokens(accessToken: credential.token, refreshToken: "", expiresAt: nil)
+                    }
+                case (.forgejo, .pat), (.gitea, .pat):
+                    if let credential = try? tokenStore.loadCredential(provider: provider, host: host, kind: .pat) {
+                        return OAuthTokens(accessToken: credential.token, refreshToken: "", expiresAt: nil)
+                    }
+                case (.customGit, _), _:
+                    return nil
                 }
-                return try? await self.auth.refreshIfNeeded()
+                return nil
             }
         }
         self.tokenRefreshTask = Task { [weak self] in
             guard let self else { return }
 
             while !Task.isCancelled {
-                if self.session.settings.authMethod == .oauth, self.auth.loadTokens() != nil {
-                    _ = try? await self.auth.refreshIfNeeded()
+                let host = self.session.settings.enterpriseHost ?? self.session.settings.githubHost
+                if self.session.settings.authMethod == .oauth, self.auth.loadTokens(host: host) != nil {
+                    _ = try? await self.auth.refreshIfNeeded(host: host)
                 }
                 try? await Task.sleep(for: .seconds(self.tokenRefreshInterval))
             }
@@ -103,6 +142,45 @@ final class AppState {
         let commits: [RepoCommitSummary]
         let error: String?
         let commitError: String?
+    }
+
+    static func credentialHost(from settings: UserSettings) -> URL {
+        if let host = settings.repositoryHosts.first(where: { $0.provider == settings.selectedProvider }) {
+            return host.webBaseURL
+        }
+        switch settings.selectedProvider {
+        case .github:
+            return settings.enterpriseHost ?? settings.githubHost
+        case .gitlab:
+            return RepositoryHost.gitlabCom.webBaseURL
+        case .bitbucketCloud:
+            return RepositoryHost.bitbucketCloud.webBaseURL
+        case .forgejo:
+            return RepositoryHost.codeberg.webBaseURL
+        case .gitea, .customGit:
+            return URL(string: "https://git.example.com")!
+        }
+    }
+
+    static func apiHost(from settings: UserSettings) -> URL {
+        if let host = settings.repositoryHosts.first(where: { $0.provider == settings.selectedProvider }) {
+            if let apiBaseURL = host.apiBaseURL {
+                return apiBaseURL
+            }
+        }
+        switch settings.selectedProvider {
+        case .github:
+            if let enterprise = settings.enterpriseHost { return enterprise.appending(path: "/api/v3") }
+            return RepoBarAuthDefaults.apiHost
+        case .gitlab:
+            return RepositoryHost.gitlabCom.apiBaseURL!
+        case .bitbucketCloud:
+            return RepositoryHost.bitbucketCloud.apiBaseURL!
+        case .forgejo:
+            return RepositoryHost.codeberg.apiBaseURL!
+        case .gitea, .customGit:
+            return Self.credentialHost(from: settings)
+        }
     }
 
     func diagnostics() async -> DiagnosticsSummary {

@@ -371,7 +371,7 @@ struct RefreshCommand: CommanderRunnableCommand {
     }
 }
 
-private func refreshPinned(_ pinned: [String], client: GitHubClient) async throws -> [RefreshRepositoryOutput] {
+private func refreshPinned(_ pinned: [String], client: RepositoryServiceRouter) async throws -> [RefreshRepositoryOutput] {
     try await withThrowingTaskGroup(of: RefreshRepositoryOutput.self) { group in
         for name in pinned {
             group.addTask {

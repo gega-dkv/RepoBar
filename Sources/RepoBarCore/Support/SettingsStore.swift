@@ -5,7 +5,7 @@ public struct SettingsStore {
     private let defaults: UserDefaults
     static let storageKey = "com.steipete.repobar.settings"
     private let key = Self.storageKey
-    private static let currentVersion = 3
+    private static let currentVersion = 4
 
     public init(defaults: UserDefaults = .standard) {
         self.defaults = defaults

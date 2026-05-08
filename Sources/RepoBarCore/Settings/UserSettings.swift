@@ -14,6 +14,9 @@ public struct UserSettings: Equatable, Codable {
     public var diagnosticsEnabled: Bool = false
     public var loggingVerbosity: LogVerbosity = .info
     public var fileLoggingEnabled: Bool = false
+    public var selectedProvider: SourceControlProvider = .github
+    public var repositoryHosts: [RepositoryHost] = [.githubCom]
+    public var repositoryAccounts: [RepositoryAccount] = []
     public var githubHost: URL = .init(string: "https://github.com")!
     public var enterpriseHost: URL?
     public var loopbackPort: Int = 53682
@@ -35,6 +38,9 @@ public struct UserSettings: Equatable, Codable {
         case diagnosticsEnabled
         case loggingVerbosity
         case fileLoggingEnabled
+        case selectedProvider
+        case repositoryHosts
+        case repositoryAccounts
         case githubHost
         case enterpriseHost
         case loopbackPort
@@ -60,6 +66,10 @@ public struct UserSettings: Equatable, Codable {
         self.enterpriseHost = try container.decodeIfPresent(URL.self, forKey: .enterpriseHost)
         self.loopbackPort = try container.decodeIfPresent(Int.self, forKey: .loopbackPort) ?? 53682
         self.authMethod = try container.decodeIfPresent(AuthMethod.self, forKey: .authMethod) ?? .oauth
+        self.selectedProvider = try container.decodeIfPresent(SourceControlProvider.self, forKey: .selectedProvider) ?? .github
+        self.repositoryHosts = try container.decodeIfPresent([RepositoryHost].self, forKey: .repositoryHosts)
+            ?? Self.defaultRepositoryHosts(githubHost: self.githubHost, enterpriseHost: self.enterpriseHost, authMethod: self.authMethod)
+        self.repositoryAccounts = try container.decodeIfPresent([RepositoryAccount].self, forKey: .repositoryAccounts) ?? []
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -77,21 +87,60 @@ public struct UserSettings: Equatable, Codable {
         try container.encode(self.diagnosticsEnabled, forKey: .diagnosticsEnabled)
         try container.encode(self.loggingVerbosity, forKey: .loggingVerbosity)
         try container.encode(self.fileLoggingEnabled, forKey: .fileLoggingEnabled)
+        try container.encode(self.selectedProvider, forKey: .selectedProvider)
+        try container.encode(self.repositoryHosts, forKey: .repositoryHosts)
+        try container.encode(self.repositoryAccounts, forKey: .repositoryAccounts)
         try container.encode(self.githubHost, forKey: .githubHost)
         try container.encodeIfPresent(self.enterpriseHost, forKey: .enterpriseHost)
         try container.encode(self.loopbackPort, forKey: .loopbackPort)
         try container.encode(self.authMethod, forKey: .authMethod)
+    }
+
+    private static func defaultRepositoryHosts(
+        githubHost: URL,
+        enterpriseHost: URL?,
+        authMethod: AuthMethod
+    ) -> [RepositoryHost] {
+        if let enterpriseHost {
+            return [
+                RepositoryHost(
+                    provider: .github,
+                    displayName: enterpriseHost.host ?? "GitHub Enterprise",
+                    webBaseURL: enterpriseHost,
+                    apiBaseURL: enterpriseHost.appending(path: "/api/v3"),
+                    authMethod: authMethod
+                )
+            ]
+        }
+
+        if githubHost.host == "github.com" {
+            return [.githubCom]
+        }
+
+        return [
+            RepositoryHost(
+                provider: .github,
+                displayName: githubHost.host ?? "GitHub",
+                webBaseURL: githubHost,
+                apiBaseURL: githubHost.appending(path: "/api/v3"),
+                authMethod: authMethod
+            )
+        ]
     }
 }
 
 public enum AuthMethod: String, CaseIterable, Equatable, Codable, Sendable {
     case oauth
     case pat
+    case apiToken
+
+    public static let allCases: [AuthMethod] = [.oauth, .pat]
 
     public var label: String {
         switch self {
         case .oauth: "OAuth"
         case .pat: "Personal Access Token"
+        case .apiToken: "API Token"
         }
     }
 }

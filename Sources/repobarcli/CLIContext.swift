@@ -3,30 +3,47 @@ import Foundation
 import RepoBarCore
 
 struct AuthContext {
-    let client: GitHubClient
+    let client: RepositoryServiceRouter
     let settings: UserSettings
     let host: URL
 }
 
 func makeAuthenticatedClient() async throws -> AuthContext {
-    guard (try? TokenStore.shared.load()) != nil else {
+    let settings = SettingsStore().load()
+    let host = settings.enterpriseHost ?? settings.githubHost
+    guard CredentialLoader.hasCredential(settings: settings, host: host) else {
         throw CLIError.notAuthenticated
     }
 
-    let settings = SettingsStore().load()
-    let host = settings.enterpriseHost ?? settings.githubHost
     let apiHost: URL = if let enterprise = settings.enterpriseHost {
         enterprise.appending(path: "/api/v3")
     } else {
         RepoBarAuthDefaults.apiHost
     }
 
-    let client = GitHubClient()
+    let client = RepositoryServiceRouter(provider: settings.selectedProvider)
     await client.setAPIHost(apiHost)
+    let authMethod = settings.authMethod
     await client.setTokenProvider { @Sendable () async throws -> OAuthTokens? in
-        try await OAuthTokenRefresher().refreshIfNeeded(host: host)
+        if authMethod == .pat, let pat = try TokenStore.shared.loadPAT(provider: .github, host: host) {
+            return OAuthTokens(accessToken: pat, refreshToken: "", expiresAt: nil)
+        }
+        return try await OAuthTokenRefresher().refreshIfNeeded(host: host)
     }
     return AuthContext(client: client, settings: settings, host: host)
+}
+
+enum CredentialLoader {
+    static func hasCredential(settings: UserSettings, host: URL) -> Bool {
+        switch settings.authMethod {
+        case .pat:
+            (try? TokenStore.shared.loadPAT(provider: .github, host: host)) != nil
+        case .oauth:
+            (try? TokenStore.shared.load(provider: .github, host: host)) != nil
+        case .apiToken:
+            false
+        }
+    }
 }
 
 func makeRepoURL(baseHost: URL, owner: String, name: String) -> URL {

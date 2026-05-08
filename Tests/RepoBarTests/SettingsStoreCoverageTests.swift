@@ -37,6 +37,8 @@ struct SettingsStoreCoverageTests {
         let loaded = store.load()
         #expect(loaded.repoList.displayLimit == 9)
         #expect(loaded.issueNumberMonitor.enabled)
+        #expect(loaded.selectedProvider == .github)
+        #expect(loaded.repositoryHosts.first?.provider == .github)
         #expect(loaded.githubHost == URL(string: "https://github.example.com")!)
         #expect(loaded.githubArchives.sources.first?.name == "openclaw")
         #expect(loaded.githubArchives.sources.first?.format == .discrawlSnapshot)
@@ -64,7 +66,9 @@ struct SettingsStoreCoverageTests {
 
         let stored = defaults.data(forKey: "com.steipete.repobar.settings")
         let decoded = try JSONDecoder().decode(TestEnvelope.self, from: #require(stored))
-        #expect(decoded.version == 3)
+        #expect(decoded.version == 4)
+        #expect(decoded.settings.selectedProvider == .github)
+        #expect(decoded.settings.repositoryHosts.first?.webBaseURL == URL(string: "https://github.com")!)
     }
 
     @Test
@@ -85,12 +89,39 @@ struct SettingsStoreCoverageTests {
         var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         object.removeValue(forKey: "githubArchives")
         object.removeValue(forKey: "issueNumberMonitor")
+        object.removeValue(forKey: "selectedProvider")
+        object.removeValue(forKey: "repositoryHosts")
+        object.removeValue(forKey: "repositoryAccounts")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
 
         let loaded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
         #expect(loaded.repoList.displayLimit == 4)
         #expect(loaded.issueNumberMonitor == IssueNumberMonitorSettings())
         #expect(loaded.githubArchives == GitHubArchiveSettings())
+        #expect(loaded.selectedProvider == .github)
+        #expect(loaded.repositoryHosts == [.githubCom])
+        #expect(loaded.repositoryAccounts.isEmpty)
+    }
+
+    @Test
+    func `legacy enterprise host creates provider host`() throws {
+        var original = UserSettings()
+        original.githubHost = try #require(URL(string: "https://ghe.example.com"))
+        original.enterpriseHost = original.githubHost
+        original.authMethod = .pat
+        let data = try JSONEncoder().encode(original)
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object.removeValue(forKey: "selectedProvider")
+        object.removeValue(forKey: "repositoryHosts")
+        object.removeValue(forKey: "repositoryAccounts")
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+
+        let loaded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
+        #expect(loaded.selectedProvider == .github)
+        #expect(loaded.repositoryHosts.count == 1)
+        #expect(loaded.repositoryHosts.first?.webBaseURL == URL(string: "https://ghe.example.com")!)
+        #expect(loaded.repositoryHosts.first?.apiBaseURL == URL(string: "https://ghe.example.com/api/v3")!)
+        #expect(loaded.repositoryHosts.first?.authMethod == .pat)
     }
 
     @Test

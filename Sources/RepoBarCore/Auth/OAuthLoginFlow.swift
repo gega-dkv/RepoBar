@@ -107,8 +107,13 @@ public struct OAuthLoginFlow {
             refreshToken: decoded.refreshToken ?? "",
             expiresAt: Date().addingTimeInterval(TimeInterval(decoded.expiresIn ?? 3600))
         )
-        try self.tokenStore.save(tokens: tokens)
-        try self.tokenStore.save(clientCredentials: OAuthClientCredentials(clientID: clientID, clientSecret: clientSecret))
+        try self.tokenStore.save(tokens: tokens, provider: .github, host: normalizedHost)
+        try self.tokenStore.save(
+            clientCredentials: OAuthClientCredentials(clientID: clientID, clientSecret: clientSecret),
+            provider: .github,
+            host: normalizedHost,
+            kind: .oauth
+        )
         server.stop()
         return tokens
     }

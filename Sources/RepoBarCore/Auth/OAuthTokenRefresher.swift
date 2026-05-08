@@ -15,7 +15,13 @@ public struct OAuthTokenRefresher: Sendable {
     }
 
     public func refreshIfNeeded(host: URL, force: Bool = false) async throws -> OAuthTokens? {
-        guard var tokens = try tokenStore.load() else { return nil }
+        guard let credential = try tokenStore.loadCredential(provider: .github, host: host, kind: .oauth) else { return nil }
+
+        var tokens = OAuthTokens(
+            accessToken: credential.token,
+            refreshToken: credential.refreshToken ?? "",
+            expiresAt: credential.expiresAt
+        )
 
         if tokens.refreshToken.isEmpty {
             return tokens
@@ -24,7 +30,7 @@ public struct OAuthTokenRefresher: Sendable {
             return tokens
         }
 
-        let credentials = try tokenStore.loadClientCredentials()
+        let credentials = try tokenStore.loadClientCredentials(provider: .github, host: host, kind: .oauth)
             ?? OAuthClientCredentials(clientID: RepoBarAuthDefaults.clientID, clientSecret: RepoBarAuthDefaults.clientSecret)
 
         let base = host.absoluteString.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
@@ -58,7 +64,7 @@ public struct OAuthTokenRefresher: Sendable {
                 refreshToken: decoded.refreshToken ?? tokens.refreshToken,
                 expiresAt: expires
             )
-            try self.tokenStore.save(tokens: tokens)
+            try self.tokenStore.save(tokens: tokens, provider: .github, host: host)
             return tokens
         } catch {
             let detail = Self.refreshErrorDetail(from: data)

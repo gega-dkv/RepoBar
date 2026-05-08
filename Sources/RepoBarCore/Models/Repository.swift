@@ -1,6 +1,7 @@
 import Foundation
 
 public struct Repository: Identifiable, Equatable, Sendable {
+    public let identity: RepositoryIdentity
     public let id: String
     public let name: String
     public let owner: String
@@ -25,6 +26,7 @@ public struct Repository: Identifiable, Equatable, Sendable {
         id: String,
         name: String,
         owner: String,
+        identity: RepositoryIdentity? = nil,
         isFork: Bool = false,
         isArchived: Bool = false,
         viewerCanRead: Bool = true,
@@ -46,6 +48,7 @@ public struct Repository: Identifiable, Equatable, Sendable {
         detailCacheState: RepoDetailCacheState? = nil,
         discussionsEnabled: Bool? = nil
     ) {
+        self.identity = identity ?? RepositoryIdentity.github(id: id, owner: owner, name: name)
         self.id = id
         self.name = name
         self.owner = owner
@@ -74,7 +77,31 @@ public struct Repository: Identifiable, Equatable, Sendable {
     }
 
     public var fullName: String {
-        "\(self.owner)/\(self.name)"
+        self.identity.pathWithNamespace
+    }
+
+    public var provider: SourceControlProvider {
+        self.identity.provider
+    }
+
+    public var namespacePath: String {
+        self.identity.namespacePath
+    }
+
+    public var pathWithNamespace: String {
+        self.identity.pathWithNamespace
+    }
+
+    public var slug: String {
+        self.identity.slug
+    }
+
+    public var webURL: URL? {
+        self.identity.webURL
+    }
+
+    public var apiURL: URL? {
+        self.identity.apiURL
     }
 
     public func withOrder(_ order: Int?) -> Repository {
@@ -82,6 +109,7 @@ public struct Repository: Identifiable, Equatable, Sendable {
             id: self.id,
             name: self.name,
             owner: self.owner,
+            identity: self.identity,
             isFork: self.isFork,
             isArchived: self.isArchived,
             viewerCanRead: self.viewerCanRead,

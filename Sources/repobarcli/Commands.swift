@@ -157,22 +157,26 @@ struct ReposCommand: CommanderRunnableCommand {
             print("RepoBar CLI")
         }
 
-        guard (try? TokenStore.shared.load()) != nil else {
+        let settings = SettingsStore().load()
+        let host = settings.enterpriseHost ?? settings.githubHost
+        guard CredentialLoader.hasCredential(settings: settings, host: host) else {
             throw CLIError.notAuthenticated
         }
 
-        let settings = SettingsStore().load()
-        let host = settings.enterpriseHost ?? settings.githubHost
         let apiHost: URL = if let enterprise = settings.enterpriseHost {
             enterprise.appending(path: "/api/v3")
         } else {
             RepoBarAuthDefaults.apiHost
         }
 
-        let client = GitHubClient()
+        let client = RepositoryServiceRouter(provider: settings.selectedProvider)
         await client.setAPIHost(apiHost)
+        let authMethod = settings.authMethod
         await client.setTokenProvider { @Sendable () async throws -> OAuthTokens? in
-            try await OAuthTokenRefresher().refreshIfNeeded(host: host)
+            if authMethod == .pat, let pat = try TokenStore.shared.loadPAT(provider: .github, host: host) {
+                return OAuthTokens(accessToken: pat, refreshToken: "", expiresAt: nil)
+            }
+            return try await OAuthTokenRefresher().refreshIfNeeded(host: host)
         }
 
         var ownerFilter = self.ownerFilter
@@ -268,7 +272,7 @@ struct ReposCommand: CommanderRunnableCommand {
         repos: [Repository],
         baseHost: URL,
         now: Date,
-        client: GitHubClient
+        client: RepositoryServiceRouter
     ) async throws {
         var output = repos
         if self.includeRelease {
@@ -291,7 +295,7 @@ struct ReposCommand: CommanderRunnableCommand {
         }
     }
 
-    private func attachLatestReleases(to repos: [Repository], client: GitHubClient) async throws -> [Repository] {
+    private func attachLatestReleases(to repos: [Repository], client: RepositoryServiceRouter) async throws -> [Repository] {
         try await withThrowingTaskGroup(of: (Int, Repository).self) { group in
             for (index, repo) in repos.enumerated() {
                 group.addTask {
@@ -324,7 +328,7 @@ struct ReposCommand: CommanderRunnableCommand {
         let name: String
     }
 
-    private func fetchNamedRepositories(_ names: [String], client: GitHubClient) async throws -> [Repository] {
+    private func fetchNamedRepositories(_ names: [String], client: RepositoryServiceRouter) async throws -> [Repository] {
         let targets: [RepoLookup] = names.enumerated().compactMap { index, name in
             let parts = name.split(separator: "/", maxSplits: 1).map(String.init)
             guard parts.count == 2 else { return nil }
@@ -515,7 +519,10 @@ struct ImportGHTokenCommand: CommanderRunnableCommand {
             expiresAt: nil
         )
 
-        try TokenStore.shared.save(tokens: tokens)
+        try TokenStore.shared.save(tokens: tokens, provider: .github, host: normalizedHost)
+        if normalizedHost.host?.lowercased() == "github.com" {
+            try? TokenStore.shared.save(tokens: tokens)
+        }
         settings.githubHost = RepoBarAuthDefaults.githubHost
         if normalizedHost.host?.lowercased() == "github.com" {
             settings.enterpriseHost = nil
@@ -549,8 +556,21 @@ struct StatusCommand: CommanderRunnableCommand {
     }
 
     mutating func run() async throws {
-        let tokens = try TokenStore.shared.load()
-        guard let tokens else {
+        let settings = SettingsStore().load()
+        let hostURL = settings.enterpriseHost ?? settings.githubHost
+        let storedCredential: (expiresAt: Date?, authenticated: Bool) = switch settings.authMethod {
+        case .oauth:
+            if let tokens = try TokenStore.shared.load(provider: .github, host: hostURL) {
+                (tokens.expiresAt, true)
+            } else {
+                (nil, false)
+            }
+        case .pat:
+            try (nil as Date?, (TokenStore.shared.loadPAT(provider: .github, host: hostURL)) != nil)
+        case .apiToken:
+            (nil, false)
+        }
+        guard storedCredential.authenticated else {
             if self.output.jsonOutput {
                 let output = StatusOutput(
                     authenticated: false,
@@ -569,10 +589,9 @@ struct StatusCommand: CommanderRunnableCommand {
             return
         }
 
-        let settings = SettingsStore().load()
-        let host = (settings.enterpriseHost ?? settings.githubHost).absoluteString
+        let host = hostURL.absoluteString
         let now = Date()
-        let expiresAt = tokens.expiresAt
+        let expiresAt = storedCredential.expiresAt
         let expired = expiresAt.map { $0 <= now }
         let expiresIn = expiresAt.map { RelativeFormatter.string(from: $0, relativeTo: now) }
 

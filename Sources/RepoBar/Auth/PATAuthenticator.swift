@@ -29,6 +29,7 @@ public final class PATAuthenticator {
     private let tokenStore: TokenStore
     private let signposter = OSSignposter(subsystem: "com.steipete.repobar", category: "pat-auth")
     private var cachedPAT: String?
+    private var cachedHost: URL?
     private var hasLoadedPAT = false
     private let session: URLSession
 
@@ -85,8 +86,9 @@ public final class PATAuthenticator {
             throw PATAuthError.invalidResponse
         }
 
-        try self.tokenStore.savePAT(pat)
+        try self.tokenStore.savePAT(pat, provider: .github, host: host)
         self.cachedPAT = pat
+        self.cachedHost = host
         self.hasLoadedPAT = true
         await DiagnosticsLogger.shared.message("PAT login succeeded; token stored.")
 
@@ -94,18 +96,32 @@ public final class PATAuthenticator {
     }
 
     /// Loads the stored PAT from Keychain.
-    public func loadPAT() -> String? {
-        if self.hasLoadedPAT { return self.cachedPAT }
+    public func loadPAT(host: URL? = nil) -> String? {
+        if self.hasLoadedPAT, host == nil || self.cachedHost == host { return self.cachedPAT }
         self.hasLoadedPAT = true
-        let pat = try? self.tokenStore.loadPAT()
+        let pat = if let host {
+            try? self.tokenStore.loadPAT(provider: .github, host: host)
+        } else {
+            try? self.tokenStore.loadPAT()
+        }
         self.cachedPAT = pat
+        self.cachedHost = host
         return pat
     }
 
     /// Clears the stored PAT.
-    public func logout() async {
-        self.tokenStore.clearPAT()
+    public func logout(host: URL? = nil) async {
+        if let host {
+            if ProviderCredential.normalizedHost(host.host ?? host.absoluteString) == "github.com" {
+                self.tokenStore.clearPAT()
+            } else {
+                self.tokenStore.clearCredential(provider: .github, host: host, kind: .pat)
+            }
+        } else {
+            self.tokenStore.clearPAT()
+        }
         self.cachedPAT = nil
+        self.cachedHost = nil
         self.hasLoadedPAT = false
         await DiagnosticsLogger.shared.message("PAT cleared.")
     }

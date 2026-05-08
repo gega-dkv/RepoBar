@@ -11,6 +11,7 @@ final class OAuthCoordinator {
     private let signposter = OSSignposter(subsystem: "com.steipete.repobar", category: "oauth")
     private var lastHost: URL = .init(string: "https://github.com")!
     private var cachedTokens: OAuthTokens?
+    private var cachedHost: URL?
     private var hasLoadedTokens = false
 
     func login(clientID: String, clientSecret: String, host: URL, loopbackPort: Int, scope: String? = nil) async throws {
@@ -27,36 +28,58 @@ final class OAuthCoordinator {
             scope: scope
         )
         self.cachedTokens = tokens
+        self.cachedHost = normalizedHost
         self.hasLoadedTokens = true
         await DiagnosticsLogger.shared.message("Login succeeded; tokens stored.")
     }
 
-    func logout() async {
-        self.tokenStore.clear()
+    func logout(host: URL? = nil) async {
+        if let host {
+            if ProviderCredential.normalizedHost(host.host ?? host.absoluteString) == "github.com" {
+                self.tokenStore.clear()
+            } else {
+                self.tokenStore.clearCredential(provider: .github, host: host, kind: .oauth)
+                self.tokenStore.clearClientCredentials(provider: .github, host: host, kind: .oauth)
+            }
+        } else {
+            self.tokenStore.clear()
+        }
         self.cachedTokens = nil
+        self.cachedHost = nil
         self.hasLoadedTokens = false
     }
 
-    func loadTokens() -> OAuthTokens? {
-        if self.hasLoadedTokens { return self.cachedTokens }
+    func loadTokens(host: URL? = nil) -> OAuthTokens? {
+        let resolvedHost = host ?? self.lastHost
+        self.lastHost = resolvedHost
+        if self.hasLoadedTokens, self.cachedHost == resolvedHost { return self.cachedTokens }
         self.hasLoadedTokens = true
-        let tokens = try? self.tokenStore.load()
+        let tokens = if let host {
+            try? self.tokenStore.load(provider: .github, host: host)
+        } else {
+            try? self.tokenStore.load()
+        }
         self.cachedTokens = tokens
+        self.cachedHost = resolvedHost
         return tokens
     }
 
-    func refreshIfNeeded(force: Bool = false) async throws -> OAuthTokens? {
+    func refreshIfNeeded(host: URL? = nil, force: Bool = false) async throws -> OAuthTokens? {
         let signpost = self.signposter.beginInterval("refreshIfNeeded")
         defer { self.signposter.endInterval("refreshIfNeeded", signpost) }
 
+        let resolvedHost = host ?? self.lastHost
+        self.lastHost = resolvedHost
         let cachedTokens = self.cachedTokens
         let shouldReuseCachedTokens = force == false
+            && self.cachedHost == resolvedHost
             && cachedTokens?.expiresAt.map { $0 > Date().addingTimeInterval(60) } != false
         if shouldReuseCachedTokens, let cachedTokens { return cachedTokens }
 
-        let refreshed = try await self.tokenRefresher.refreshIfNeeded(host: self.lastHost, force: force)
+        let refreshed = try await self.tokenRefresher.refreshIfNeeded(host: resolvedHost, force: force)
         if refreshed != nil {
             self.cachedTokens = refreshed
+            self.cachedHost = resolvedHost
             self.hasLoadedTokens = true
         }
         return refreshed

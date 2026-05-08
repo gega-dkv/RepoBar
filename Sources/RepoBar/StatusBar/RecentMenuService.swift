@@ -8,7 +8,7 @@ final class RecentMenuService {
     let cacheTTL: TimeInterval
     let loadTimeout: TimeInterval
 
-    private let github: GitHubClient
+    private let github: RepositoryServiceRouter
     private let recentIssuesCache = RecentListCache<RepoIssueSummary>()
     private let recentPullRequestsCache = RecentListCache<RepoPullRequestSummary>()
     private let recentReleasesCache = RecentListCache<RepoReleaseSummary>()
@@ -21,7 +21,7 @@ final class RecentMenuService {
     private var recentCommitCounts: [String: Int] = [:]
 
     init(
-        github: GitHubClient,
+        github: RepositoryServiceRouter,
         listLimit: Int = AppLimits.RecentLists.limit,
         previewLimit: Int = AppLimits.RecentLists.previewLimit,
         cacheTTL: TimeInterval = AppLimits.RecentLists.cacheTTL,
@@ -264,7 +264,7 @@ struct RecentMenuDescriptorConfig<Item: Sendable> {
     let cache: RecentListCache<Item>
     let wrap: ([Item]) -> RecentMenuItems
     let unwrap: (RecentMenuItems) -> [Item]?
-    let fetch: @Sendable (GitHubClient, String, String, Int) async throws -> [Item]
+    let fetch: @Sendable (RepositoryServiceRouter, String, String, Int) async throws -> [Item]
 }
 
 struct RecentMenuDescriptor {

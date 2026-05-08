@@ -24,6 +24,96 @@ public struct OAuthClientCredentials: Codable, Equatable, Sendable {
     }
 }
 
+public enum TokenCredentialKind: String, Codable, Equatable, Sendable {
+    case oauth
+    case pat
+    case apiToken
+    case none
+}
+
+public enum CredentialHeaderStyle: String, Codable, Equatable, Sendable {
+    case authorizationBearer
+    case privateToken
+    case basic
+    case none
+
+    public func apply(to request: inout URLRequest, credential: ProviderCredential) {
+        switch self {
+        case .authorizationBearer:
+            request.setValue("Bearer \(credential.token)", forHTTPHeaderField: "Authorization")
+        case .privateToken:
+            request.setValue(credential.token, forHTTPHeaderField: "PRIVATE-TOKEN")
+        case .basic:
+            guard let username = credential.username else { return }
+
+            let raw = "\(username):\(credential.token)"
+            let encoded = Data(raw.utf8).base64EncodedString()
+            request.setValue("Basic \(encoded)", forHTTPHeaderField: "Authorization")
+        case .none:
+            break
+        }
+    }
+}
+
+public struct ProviderCredential: Codable, Equatable, Sendable {
+    public var provider: SourceControlProvider
+    public var host: String
+    public var kind: TokenCredentialKind
+    public var headerStyle: CredentialHeaderStyle
+    public var token: String
+    public var refreshToken: String?
+    public var expiresAt: Date?
+    public var username: String?
+
+    public init(
+        provider: SourceControlProvider,
+        host: String,
+        kind: TokenCredentialKind,
+        headerStyle: CredentialHeaderStyle,
+        token: String,
+        refreshToken: String? = nil,
+        expiresAt: Date? = nil,
+        username: String? = nil
+    ) {
+        self.provider = provider
+        self.host = Self.normalizedHost(host)
+        self.kind = kind
+        self.headerStyle = headerStyle
+        self.token = token
+        self.refreshToken = refreshToken
+        self.expiresAt = expiresAt
+        self.username = username
+    }
+
+    public init(
+        provider: SourceControlProvider,
+        host: URL,
+        kind: TokenCredentialKind,
+        headerStyle: CredentialHeaderStyle,
+        token: String,
+        refreshToken: String? = nil,
+        expiresAt: Date? = nil,
+        username: String? = nil
+    ) {
+        self.init(
+            provider: provider,
+            host: host.host ?? host.absoluteString,
+            kind: kind,
+            headerStyle: headerStyle,
+            token: token,
+            refreshToken: refreshToken,
+            expiresAt: expiresAt,
+            username: username
+        )
+    }
+
+    public static func normalizedHost(_ host: String) -> String {
+        host.trimmingCharacters(in: .whitespacesAndNewlines)
+            .lowercased()
+            .trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+    }
+}
+
 public enum TokenStoreError: Error {
     case saveFailed
     case loadFailed
@@ -57,29 +147,125 @@ public struct TokenStore: Sendable {
     public func save(tokens: OAuthTokens) throws {
         let data = try JSONEncoder().encode(tokens)
         try self.save(data: data, account: "default")
+        try self.save(tokens: tokens, provider: .github, host: RepositoryHost.githubCom.webBaseURL)
+    }
+
+    public func save(tokens: OAuthTokens, provider: SourceControlProvider, host: URL) throws {
+        try self.save(
+            credential: ProviderCredential(
+                provider: provider,
+                host: host,
+                kind: .oauth,
+                headerStyle: Self.defaultHeaderStyle(provider: provider, kind: .oauth),
+                token: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                expiresAt: tokens.expiresAt
+            )
+        )
     }
 
     public func load() throws -> OAuthTokens? {
+        if let tokens = try self.load(provider: .github, host: RepositoryHost.githubCom.webBaseURL) { return tokens }
         guard let data = try self.loadData(account: "default") else { return nil }
 
-        return try JSONDecoder().decode(OAuthTokens.self, from: data)
+        let tokens = try JSONDecoder().decode(OAuthTokens.self, from: data)
+        try? self.save(tokens: tokens)
+        return tokens
+    }
+
+    public func load(provider: SourceControlProvider, host: URL) throws -> OAuthTokens? {
+        guard let credential = try self.loadCredential(
+            provider: provider,
+            host: host,
+            kind: .oauth
+        ) else { return nil }
+
+        return OAuthTokens(
+            accessToken: credential.token,
+            refreshToken: credential.refreshToken ?? "",
+            expiresAt: credential.expiresAt
+        )
     }
 
     public func save(clientCredentials: OAuthClientCredentials) throws {
         let data = try JSONEncoder().encode(clientCredentials)
         try self.save(data: data, account: "client")
+        try self.save(clientCredentials: clientCredentials, provider: .github, host: RepositoryHost.githubCom.webBaseURL, kind: .oauth)
+    }
+
+    public func save(
+        clientCredentials: OAuthClientCredentials,
+        provider: SourceControlProvider,
+        host: URL,
+        kind: TokenCredentialKind
+    ) throws {
+        let data = try JSONEncoder().encode(clientCredentials)
+        try self.save(
+            data: data,
+            account: Self.clientCredentialsAccount(
+                provider: provider,
+                host: host,
+                kind: kind
+            )
+        )
     }
 
     public func loadClientCredentials() throws -> OAuthClientCredentials? {
+        if let credentials = try self.loadClientCredentials(
+            provider: .github,
+            host: RepositoryHost.githubCom.webBaseURL,
+            kind: .oauth
+        ) {
+            return credentials
+        }
         guard let data = try self.loadData(account: "client") else { return nil }
 
-        return try JSONDecoder().decode(OAuthClientCredentials.self, from: data)
+        let credentials = try JSONDecoder().decode(OAuthClientCredentials.self, from: data)
+        try? self.save(clientCredentials: credentials)
+        return credentials
+    }
+
+    public func loadClientCredentials(
+        provider: SourceControlProvider,
+        host: URL,
+        kind: TokenCredentialKind
+    ) throws -> OAuthClientCredentials? {
+        if let data = try self.loadData(
+            account: Self.clientCredentialsAccount(
+                provider: provider,
+                host: host,
+                kind: kind
+            )
+        ) {
+            return try JSONDecoder().decode(OAuthClientCredentials.self, from: data)
+        }
+
+        guard provider == .github, kind == .oauth, ProviderCredential.normalizedHost(host.host ?? host.absoluteString) == "github.com",
+              let data = try self.loadData(account: "client")
+        else { return nil }
+
+        let credentials = try JSONDecoder().decode(OAuthClientCredentials.self, from: data)
+        try? self.save(clientCredentials: credentials, provider: provider, host: host, kind: kind)
+        return credentials
+    }
+
+    public func clearClientCredentials(provider: SourceControlProvider, host: URL, kind: TokenCredentialKind) {
+        self.clear(account: Self.clientCredentialsAccount(provider: provider, host: host, kind: kind))
     }
 
     public func clear() {
         self.clear(account: "default")
         self.clear(account: "client")
         self.clearPAT()
+        self.clearCredential(provider: .github, host: RepositoryHost.githubCom.webBaseURL, kind: .oauth)
+        self.clearCredential(provider: .github, host: RepositoryHost.githubCom.webBaseURL, kind: .pat)
+        self.clear(
+            account: Self.clientCredentialsAccount(
+                provider: .github,
+                host: RepositoryHost.githubCom.webBaseURL,
+                kind: .oauth
+            )
+        )
     }
 
     // MARK: - PAT Storage
@@ -87,16 +273,146 @@ public struct TokenStore: Sendable {
     public func savePAT(_ token: String) throws {
         let data = Data(token.utf8)
         try self.save(data: data, account: "pat")
+        try self.savePAT(token, provider: .github, host: RepositoryHost.githubCom.webBaseURL)
     }
 
     public func loadPAT() throws -> String? {
+        if let token = try self.loadPAT(provider: .github, host: RepositoryHost.githubCom.webBaseURL) { return token }
         guard let data = try self.loadData(account: "pat") else { return nil }
 
-        return String(data: data, encoding: .utf8)
+        let token = String(data: data, encoding: .utf8)
+        if let token {
+            try? self.savePAT(token)
+        }
+        return token
     }
 
     public func clearPAT() {
         self.clear(account: "pat")
+        self.clearCredential(provider: .github, host: RepositoryHost.githubCom.webBaseURL, kind: .pat)
+    }
+
+    public func savePAT(_ token: String, provider: SourceControlProvider, host: URL) throws {
+        if provider == .github, ProviderCredential.normalizedHost(host.host ?? host.absoluteString) == "github.com" {
+            try self.save(data: Data(token.utf8), account: "pat")
+        }
+        try self.save(
+            credential: ProviderCredential(
+                provider: provider,
+                host: host,
+                kind: .pat,
+                headerStyle: Self.defaultHeaderStyle(provider: provider, kind: .pat),
+                token: token
+            )
+        )
+    }
+
+    public func loadPAT(provider: SourceControlProvider, host: URL) throws -> String? {
+        try self.loadCredential(provider: provider, host: host, kind: .pat)?.token
+    }
+
+    public func saveAPIToken(_ token: String, username: String, provider: SourceControlProvider, host: URL) throws {
+        try self.save(
+            credential: ProviderCredential(
+                provider: provider,
+                host: host,
+                kind: .apiToken,
+                headerStyle: Self.defaultHeaderStyle(provider: provider, kind: .apiToken),
+                token: token,
+                username: username
+            )
+        )
+    }
+
+    public func save(credential: ProviderCredential) throws {
+        let data = try JSONEncoder().encode(credential)
+        try self.save(data: data, account: Self.credentialAccount(provider: credential.provider, host: credential.host, kind: credential.kind))
+    }
+
+    public func loadCredential(provider: SourceControlProvider, host: URL, kind: TokenCredentialKind) throws -> ProviderCredential? {
+        try self.loadCredential(provider: provider, host: host.host ?? host.absoluteString, kind: kind)
+    }
+
+    public func loadCredential(provider: SourceControlProvider, host: String, kind: TokenCredentialKind) throws -> ProviderCredential? {
+        let account = Self.credentialAccount(provider: provider, host: host, kind: kind)
+        guard let data = try self.loadData(account: account) else {
+            return try self.legacyCredential(provider: provider, host: host, kind: kind)
+        }
+
+        return try JSONDecoder().decode(ProviderCredential.self, from: data)
+    }
+
+    public func clearCredential(provider: SourceControlProvider, host: URL, kind: TokenCredentialKind) {
+        self.clear(account: Self.credentialAccount(provider: provider, host: host, kind: kind))
+    }
+
+    public static func credentialAccount(provider: SourceControlProvider, host: URL, kind: TokenCredentialKind) -> String {
+        self.credentialAccount(provider: provider, host: host.host ?? host.absoluteString, kind: kind)
+    }
+
+    public static func credentialAccount(provider: SourceControlProvider, host: String, kind: TokenCredentialKind) -> String {
+        "\(provider.rawValue):\(ProviderCredential.normalizedHost(host)):\(kind.rawValue)"
+    }
+
+    public static func clientCredentialsAccount(provider: SourceControlProvider, host: URL, kind: TokenCredentialKind) -> String {
+        "\(self.credentialAccount(provider: provider, host: host, kind: kind)):client"
+    }
+
+    public static func defaultHeaderStyle(provider: SourceControlProvider, kind: TokenCredentialKind) -> CredentialHeaderStyle {
+        switch (provider, kind) {
+        case (_, .oauth):
+            .authorizationBearer
+        case (.github, .pat):
+            .authorizationBearer
+        case (.gitlab, .pat):
+            .privateToken
+        case (.bitbucketCloud, .apiToken):
+            .basic
+        case (.forgejo, .pat), (.gitea, .pat):
+            .authorizationBearer
+        case (_, .none), (_, .apiToken), (_, .pat):
+            .none
+        }
+    }
+}
+
+private extension TokenStore {
+    func legacyCredential(provider: SourceControlProvider, host: String, kind: TokenCredentialKind) throws -> ProviderCredential? {
+        guard provider == .github, ProviderCredential.normalizedHost(host) == "github.com" else { return nil }
+
+        switch kind {
+        case .oauth:
+            guard let data = try self.loadData(account: "default") else { return nil }
+
+            let tokens = try JSONDecoder().decode(OAuthTokens.self, from: data)
+            let credential = ProviderCredential(
+                provider: .github,
+                host: RepositoryHost.githubCom.webBaseURL,
+                kind: .oauth,
+                headerStyle: .authorizationBearer,
+                token: tokens.accessToken,
+                refreshToken: tokens.refreshToken,
+                expiresAt: tokens.expiresAt
+            )
+            try? self.save(credential: credential)
+            return credential
+        case .pat:
+            guard let data = try self.loadData(account: "pat"),
+                  let token = String(data: data, encoding: .utf8)
+            else { return nil }
+
+            let credential = ProviderCredential(
+                provider: .github,
+                host: RepositoryHost.githubCom.webBaseURL,
+                kind: .pat,
+                headerStyle: .authorizationBearer,
+                token: token
+            )
+            try? self.save(credential: credential)
+            return credential
+        case .apiToken, .none:
+            return nil
+        }
     }
 }
 

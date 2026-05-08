@@ -68,9 +68,9 @@ struct OAuthLoginFlowTests {
         #expect(tokens.refreshToken == "ref")
         #expect(tokens.expiresAt != nil)
 
-        #expect(try store.load()?.accessToken == "tok")
-        #expect(try store.loadClientCredentials()?.clientID == "cid")
-        #expect(try store.loadClientCredentials()?.clientSecret == "csecret")
+        #expect(try store.load(provider: .github, host: host)?.accessToken == "tok")
+        #expect(try store.loadClientCredentials(provider: .github, host: host, kind: .oauth)?.clientID == "cid")
+        #expect(try store.loadClientCredentials(provider: .github, host: host, kind: .oauth)?.clientSecret == "csecret")
     }
 
     @Test
