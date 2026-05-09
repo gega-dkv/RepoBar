@@ -43,9 +43,11 @@ public struct ProviderTokenAuthenticator: Sendable {
         switch provider {
         case .gitlab:
             return try await self.authenticateGitLabPAT(token: token, host: host)
+        case .forgejo, .gitea:
+            return try await self.authenticateForgejoCompatiblePAT(provider: provider, token: token, host: host)
         case .github:
             throw ProviderTokenAuthError.unsupportedProvider(provider)
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud, .customGit:
             throw ProviderTokenAuthError.unsupportedProvider(provider)
         }
     }
@@ -92,6 +94,28 @@ public struct ProviderTokenAuthenticator: Sendable {
         return UserIdentity(username: decoded.username, host: host)
     }
 
+    private func authenticateForgejoCompatiblePAT(
+        provider: SourceControlProvider,
+        token: String,
+        host: URL
+    ) async throws -> UserIdentity {
+        let credential = ProviderCredential(
+            provider: provider,
+            host: host,
+            kind: .pat,
+            headerStyle: .authorizationToken,
+            token: token
+        )
+        let userURL = Self.forgejoCompatibleAPIHost(for: host).appending(path: "user")
+        var request = URLRequest(url: userURL)
+        credential.headerStyle.apply(to: &request, credential: credential)
+
+        let data = try await self.validatedData(for: request, provider: provider)
+        let username = try Self.decodeForgejoCompatibleUser(from: data)
+        try self.tokenStore.save(credential: credential)
+        return UserIdentity(username: username, host: host)
+    }
+
     private func validatedData(for request: URLRequest, provider: SourceControlProvider) async throws -> Data {
         let data: Data
         let response: URLResponse
@@ -124,13 +148,24 @@ public struct ProviderTokenAuthenticator: Sendable {
         return host.appending(path: "api/v4")
     }
 
+    private static func forgejoCompatibleAPIHost(for host: URL) -> URL {
+        if host.path.hasPrefix("/api/v1") {
+            return host
+        }
+        return host.appending(path: "api/v1")
+    }
+
     private static func forbiddenMessage(provider: SourceControlProvider) -> String {
         switch provider {
         case .gitlab:
             "Access forbidden. Token may lack required scopes (read_user, read_api, read_repository)."
         case .bitbucketCloud:
             "Access forbidden. Check the Atlassian email and API token permissions."
-        case .github, .forgejo, .gitea, .customGit:
+        case .forgejo:
+            "Access forbidden. Token may lack required Forgejo repository read permissions."
+        case .gitea:
+            "Access forbidden. Token may lack required Gitea repository read permissions."
+        case .github, .customGit:
             "Access forbidden."
         }
     }
@@ -158,6 +193,20 @@ public struct ProviderTokenAuthenticator: Sendable {
             throw ProviderTokenAuthError.invalidResponse
         }
     }
+
+    private static func decodeForgejoCompatibleUser(from data: Data) throws -> String {
+        do {
+            let decoded = try JSONDecoder().decode(ForgejoCompatibleUserResponse.self, from: data)
+            if let login = decoded.login, !login.isEmpty { return login }
+            if let username = decoded.username, !username.isEmpty { return username }
+            if let fullName = decoded.fullName, !fullName.isEmpty { return fullName }
+            throw ProviderTokenAuthError.invalidResponse
+        } catch let error as ProviderTokenAuthError {
+            throw error
+        } catch {
+            throw ProviderTokenAuthError.invalidResponse
+        }
+    }
 }
 
 private struct GitLabUserResponse: Decodable {
@@ -177,5 +226,17 @@ private struct BitbucketUserResponse: Decodable {
         case displayName = "display_name"
         case accountID = "account_id"
         case uuid
+    }
+}
+
+private struct ForgejoCompatibleUserResponse: Decodable {
+    let login: String?
+    let username: String?
+    let fullName: String?
+
+    enum CodingKeys: String, CodingKey {
+        case login
+        case username
+        case fullName = "full_name"
     }
 }

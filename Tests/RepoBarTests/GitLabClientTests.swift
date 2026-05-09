@@ -8,6 +8,9 @@ struct GitLabClientTests {
         let handlerID = UUID().uuidString
         Self.MockURLProtocol.register(handlerID: handlerID) { request in
             #expect(request.value(forHTTPHeaderField: "PRIVATE-TOKEN") == "glpat-token")
+            if let response = Self.enrichmentResponse(for: request) {
+                return response
+            }
             #expect(request.url?.path == "/api/v4/projects")
             let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)
             let page = components?.queryItems?.first(where: { $0.name == "page" })?.value
@@ -38,6 +41,8 @@ struct GitLabClientTests {
         #expect(repositories[0].owner == "group/subgroup")
         #expect(repositories[0].name == "repo-one")
         #expect(repositories[0].openIssues == 3)
+        #expect(repositories[0].openPulls == 4)
+        #expect(repositories[0].ciStatus == .passing)
         #expect(repositories[0].stars == 7)
         #expect(repositories[0].forks == 2)
         #expect(repositories[0].webURL?.absoluteString == "https://gitlab.com/group/subgroup/repo-one")
@@ -47,6 +52,9 @@ struct GitLabClientTests {
     func `full repository URL encodes namespace path`() async throws {
         let handlerID = UUID().uuidString
         Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            if let response = Self.enrichmentResponse(for: request) {
+                return response
+            }
             let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)
             #expect(components?.percentEncodedPath == "/api/v4/projects/group%2Fsubgroup%2Frepo")
 
@@ -66,6 +74,9 @@ struct GitLabClientTests {
     func `repository list falls back to link pagination`() async throws {
         let handlerID = UUID().uuidString
         Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            if let response = Self.enrichmentResponse(for: request) {
+                return response
+            }
             let components = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)
             let page = components?.queryItems?.first(where: { $0.name == "page" })?.value
             let response: HTTPURLResponse
@@ -154,9 +165,67 @@ struct GitLabClientTests {
     }
 
     @Test
+    func `activity repositories attach latest project event`() async throws {
+        let handlerID = UUID().uuidString
+        Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            if let response = Self.enrichmentResponse(for: request) {
+                return response
+            }
+            if request.url?.path.hasSuffix("/events") == true {
+                let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+                return (
+                    Data("""
+                    [{
+                      "action_name": "pushed to",
+                      "target_type": "Push",
+                      "target_title": "main",
+                      "author_username": "ana",
+                      "author": {"username": "ana", "avatar_url": "https://gitlab.com/avatar.png"},
+                      "created_at": "2026-05-08T12:20:30Z",
+                      "target_url": "https://gitlab.com/group/repo"
+                    }]
+                    """.utf8),
+                    response
+                )
+            }
+
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(Self.projectJSONArray(id: 12, path: "group/repo", name: "repo").utf8), response)
+        }
+        defer { Self.MockURLProtocol.unregister(handlerID: handlerID) }
+
+        let client = try await Self.client(handlerID: handlerID)
+        let repositories = try await client.activityRepositories(limit: 1)
+
+        #expect(repositories.first?.latestActivity?.title == "main")
+        #expect(repositories.first?.latestActivity?.actor == "ana")
+    }
+
+    @Test
+    func `recent workflow runs map pipeline status`() async throws {
+        let handlerID = UUID().uuidString
+        Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            #expect(request.url?.path.hasSuffix("/pipelines") == true)
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(#"[{"id":9,"iid":3,"status":"failed","ref":"main","web_url":"https://gitlab.com/group/repo/-/pipelines/9","updated_at":"2026-05-08T10:20:30Z"}]"#.utf8), response)
+        }
+        defer { Self.MockURLProtocol.unregister(handlerID: handlerID) }
+
+        let client = try await Self.client(handlerID: handlerID)
+        let runs = try await client.recentWorkflowRuns(owner: "group", name: "repo", limit: 1)
+
+        #expect(runs.first?.status == .failing)
+        #expect(runs.first?.branch == "main")
+        #expect(runs.first?.runNumber == 3)
+    }
+
+    @Test
     func `router delegates gitlab repository list`() async throws {
         let handlerID = UUID().uuidString
         Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            if let response = Self.enrichmentResponse(for: request) {
+                return response
+            }
             let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
             return (Data(Self.projectJSONArray(id: 12, path: "group/repo", name: "repo").utf8), response)
         }
@@ -198,6 +267,20 @@ private extension GitLabClientTests {
 
     static func projectJSONArray(id: Int, path: String, name: String) -> String {
         "[\(self.projectJSONObject(id: id, path: path, name: name))]"
+    }
+
+    static func enrichmentResponse(for request: URLRequest) -> (Data, URLResponse)? {
+        guard let path = request.url?.path else { return nil }
+
+        if path.hasSuffix("/merge_requests") {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: ["x-total": "4"])!
+            return (Data("[]".utf8), response)
+        }
+        if path.hasSuffix("/pipelines") {
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(#"[{"id":1,"iid":1,"status":"success","ref":"main","web_url":"https://gitlab.com/group/repo/-/pipelines/1","updated_at":"2026-05-08T10:20:30Z"}]"#.utf8), response)
+        }
+        return nil
     }
 
     static func projectJSONObject(id: Int, path: String, name: String) -> String {

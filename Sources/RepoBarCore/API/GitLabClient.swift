@@ -49,7 +49,7 @@ public actor GitLabClient: RepositoryService {
 
     public func repositoryList(limit: Int?) async throws -> [Repository] {
         let projects = try await self.projects(limit: limit)
-        let repositories = projects.map { self.repository(from: $0) }
+        let repositories = try await self.enrichedRepositories(from: projects, includeActivity: false)
         self.repositoryCache = repositories
         return repositories
     }
@@ -97,7 +97,10 @@ public actor GitLabClient: RepositoryService {
     }
 
     public func activityRepositories(limit: Int?) async throws -> [Repository] {
-        try await self.repositoryList(limit: limit)
+        let projects = try await self.projects(limit: limit)
+        let repositories = try await self.enrichedRepositories(from: projects, includeActivity: true)
+        self.repositoryCache = repositories
+        return repositories
     }
 
     public func fullRepository(owner: String, name: String) async throws -> Repository {
@@ -111,12 +114,26 @@ public actor GitLabClient: RepositoryService {
         }
     }
 
-    public func userActivityEvents(username _: String, scope _: GlobalActivityScope, limit _: Int) async throws -> [ActivityEvent] {
-        throw UnsupportedProviderFeature.unsupported(provider: .gitlab, feature: "user activity")
+    public func userActivityEvents(username _: String, scope _: GlobalActivityScope, limit: Int) async throws -> [ActivityEvent] {
+        let repos = try await self.repositoryList(limit: min(max(limit, 1), 20))
+        var events: [ActivityEvent] = []
+        for repo in repos {
+            let repoEvents = try await self.projectEvents(owner: repo.owner, name: repo.name, limit: max(1, limit - events.count))
+            events.append(contentsOf: repoEvents)
+            if events.count >= limit { break }
+        }
+        return Array(events.sorted { $0.date > $1.date }.prefix(limit))
     }
 
-    public func userCommitEvents(username _: String, scope _: GlobalActivityScope, limit _: Int) async throws -> [RepoCommitSummary] {
-        throw UnsupportedProviderFeature.unsupported(provider: .gitlab, feature: "user commits")
+    public func userCommitEvents(username _: String, scope _: GlobalActivityScope, limit: Int) async throws -> [RepoCommitSummary] {
+        let repos = try await self.repositoryList(limit: min(max(limit, 1), 20))
+        var commits: [RepoCommitSummary] = []
+        for repo in repos {
+            let repoCommits = try await self.recentCommits(owner: repo.owner, name: repo.name, limit: max(1, limit - commits.count)).items
+            commits.append(contentsOf: repoCommits)
+            if commits.count >= limit { break }
+        }
+        return Array(commits.sorted { $0.authoredAt > $1.authoredAt }.prefix(limit))
     }
 
     public func userContributionHeatmap(login _: String) async throws -> [HeatmapCell] {
@@ -143,7 +160,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabMergeRequest.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/merge_requests",
+            path: "projects/\(self.projectID(owner: owner, name: name))/merge_requests",
             queryItems: [
                 URLQueryItem(name: "state", value: "opened"),
                 URLQueryItem(name: "order_by", value: "updated_at"),
@@ -159,7 +176,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabIssue.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/issues",
+            path: "projects/\(self.projectID(owner: owner, name: name))/issues",
             queryItems: [
                 URLQueryItem(name: "state", value: "opened"),
                 URLQueryItem(name: "order_by", value: "updated_at"),
@@ -175,7 +192,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabRelease.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/releases",
+            path: "projects/\(self.projectID(owner: owner, name: name))/releases",
             queryItems: [URLQueryItem(name: "order_by", value: "released_at"), URLQueryItem(name: "sort", value: "desc")],
             limit: limit,
             credential: self.credential()
@@ -183,15 +200,22 @@ public actor GitLabClient: RepositoryService {
         return items.compactMap { self.releaseSummary($0, owner: owner, name: name) }
     }
 
-    public func recentWorkflowRuns(owner _: String, name _: String, limit _: Int = 20) async throws -> [RepoWorkflowRunSummary] {
-        throw UnsupportedProviderFeature.unsupported(provider: .gitlab, feature: "pipelines")
+    public func recentWorkflowRuns(owner: String, name: String, limit: Int = 20) async throws -> [RepoWorkflowRunSummary] {
+        let items = try await self.runner.paginated(
+            GitLabPipeline.self,
+            apiHost: self.apiHost,
+            path: "projects/\(self.projectID(owner: owner, name: name))/pipelines",
+            limit: limit,
+            credential: self.credential()
+        )
+        return items.map { self.workflowRunSummary($0, owner: owner, name: name) }
     }
 
     public func recentCommits(owner: String, name: String, limit: Int = 20) async throws -> RepoCommitList {
         let items = try await self.runner.paginated(
             GitLabCommit.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/repository/commits",
+            path: "projects/\(self.projectID(owner: owner, name: name))/repository/commits",
             limit: limit,
             credential: self.credential()
         )
@@ -206,7 +230,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabTag.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/repository/tags",
+            path: "projects/\(self.projectID(owner: owner, name: name))/repository/tags",
             limit: limit,
             credential: self.credential()
         )
@@ -217,7 +241,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabBranch.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/repository/branches",
+            path: "projects/\(self.projectID(owner: owner, name: name))/repository/branches",
             limit: limit,
             credential: self.credential()
         )
@@ -234,7 +258,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabTreeItem.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/repository/tree",
+            path: "projects/\(self.projectID(owner: owner, name: name))/repository/tree",
             queryItems: queryItems,
             limit: nil,
             credential: self.credential()
@@ -245,7 +269,7 @@ public actor GitLabClient: RepositoryService {
     public func repoFileContents(owner: String, name: String, path: String) async throws -> Data {
         try await self.runner.data(
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/repository/files/\(Self.urlPathComponent(path))/raw",
+            path: "projects/\(self.projectID(owner: owner, name: name))/repository/files/\(Self.urlPathComponent(path))/raw",
             credential: self.credential()
         )
     }
@@ -254,7 +278,7 @@ public actor GitLabClient: RepositoryService {
         let items = try await self.runner.paginated(
             GitLabContributor.self,
             apiHost: self.apiHost,
-            path: "projects/\(Self.projectID(owner: owner, name: name))/repository/contributors",
+            path: "projects/\(self.projectID(owner: owner, name: name))/repository/contributors",
             queryItems: [URLQueryItem(name: "order_by", value: "commits"), URLQueryItem(name: "sort", value: "desc")],
             limit: limit,
             credential: self.credential()
@@ -293,6 +317,81 @@ public actor GitLabClient: RepositoryService {
             GitLabProject.self,
             apiHost: self.apiHost,
             path: "projects/\(Self.urlPathComponent(pathWithNamespace))",
+            credential: self.credential()
+        )
+    }
+
+    private func enrichedRepositories(from projects: [GitLabProject], includeActivity: Bool) async throws -> [Repository] {
+        try await withThrowingTaskGroup(of: (Int, Repository).self) { group in
+            for (index, project) in projects.enumerated() {
+                let baseRepository = self.repository(from: project)
+                group.addTask {
+                    var repository = baseRepository
+                    async let mergeRequestCount = self.openMergeRequestCount(for: project)
+                    async let issueCount = self.openIssueCountIfNeeded(for: project)
+                    async let pipelineStatus = self.latestPipelineStatus(for: project)
+
+                    repository.openPulls = try await mergeRequestCount ?? 0
+                    if let issueCount = try await issueCount {
+                        repository.openIssues = issueCount
+                    }
+                    if let pipelineStatus = try await pipelineStatus {
+                        repository.ciStatus = pipelineStatus.status
+                        repository.ciRunCount = pipelineStatus.runCount
+                    }
+                    if includeActivity, let latestActivity = try await self.latestActivity(for: project) {
+                        repository.latestActivity = latestActivity
+                        repository.activityEvents = [latestActivity]
+                    }
+                    return (index, repository)
+                }
+            }
+
+            var output = [(Int, Repository)]()
+            for try await item in group {
+                output.append(item)
+            }
+            return output.sorted { $0.0 < $1.0 }.map(\.1)
+        }
+    }
+
+    private func openIssueCountIfNeeded(for project: GitLabProject) async throws -> Int? {
+        guard project.openIssuesCount == nil else { return nil }
+
+        return try await self.count(path: "projects/\(project.id)/issues", state: "opened")
+    }
+
+    private func openMergeRequestCount(for project: GitLabProject) async throws -> Int? {
+        guard project.mergeRequestsEnabled != false else { return 0 }
+
+        return try await self.count(path: "projects/\(project.id)/merge_requests", state: "opened")
+    }
+
+    private func latestPipelineStatus(for project: GitLabProject) async throws -> CIStatusDetails? {
+        guard project.jobsEnabled != false else { return nil }
+
+        let pipelines = try await self.runner.paginated(
+            GitLabPipeline.self,
+            apiHost: self.apiHost,
+            path: "projects/\(project.id)/pipelines",
+            queryItems: project.defaultBranch.map { [URLQueryItem(name: "ref", value: $0)] } ?? [],
+            limit: 1,
+            credential: self.credential()
+        )
+        guard let pipeline = pipelines.first else { return nil }
+
+        return CIStatusDetails(status: Self.ciStatus(from: pipeline.status), runCount: 1)
+    }
+
+    private func latestActivity(for project: GitLabProject) async throws -> ActivityEvent? {
+        try await self.projectEvents(projectID: String(project.id), fallbackRepoName: project.pathWithNamespace, limit: 1).first
+    }
+
+    private func count(path: String, state: String) async throws -> Int? {
+        try await self.runner.count(
+            apiHost: self.apiHost,
+            path: path,
+            queryItems: [URLQueryItem(name: "state", value: state)],
             credential: self.credential()
         )
     }
@@ -374,8 +473,14 @@ public actor GitLabClient: RepositoryService {
         return components.url ?? apiHost
     }
 
-    private static func projectID(owner: String, name: String) -> String {
-        self.urlPathComponent("\(owner)/\(name)")
+    private func projectID(owner: String, name: String) -> String {
+        let path = "\(owner)/\(name)"
+        if let cached = self.repositoryCache.first(where: { $0.pathWithNamespace == path }) {
+            if let providerSpecificID = cached.identity.providerSpecificID {
+                return providerSpecificID
+            }
+        }
+        return Self.urlPathComponent(path)
     }
 
     private static func urlPathComponent(_ value: String) -> String {
@@ -413,6 +518,67 @@ public actor GitLabClient: RepositoryService {
             headRefName: mergeRequest.sourceBranch,
             baseRefName: mergeRequest.targetBranch
         )
+    }
+
+    private func workflowRunSummary(_ pipeline: GitLabPipeline, owner: String, name: String) -> RepoWorkflowRunSummary {
+        RepoWorkflowRunSummary(
+            name: "Pipeline \(pipeline.iid.map { "#\($0)" } ?? pipeline.id.map(String.init) ?? "")",
+            url: pipeline.webURL ?? self.webHostURL().appending(path: "\(owner)/\(name)/-/pipelines"),
+            updatedAt: pipeline.updatedAt ?? pipeline.createdAt ?? Date.distantPast,
+            status: Self.ciStatus(from: pipeline.status),
+            conclusion: pipeline.status,
+            branch: pipeline.ref,
+            event: "pipeline",
+            actorLogin: nil,
+            actorAvatarURL: nil,
+            runNumber: pipeline.iid ?? pipeline.id
+        )
+    }
+
+    private func projectEvents(owner: String, name: String, limit: Int) async throws -> [ActivityEvent] {
+        try await self.projectEvents(projectID: self.projectID(owner: owner, name: name), fallbackRepoName: "\(owner)/\(name)", limit: limit)
+    }
+
+    private func projectEvents(projectID: String, fallbackRepoName: String, limit: Int) async throws -> [ActivityEvent] {
+        let events = try await self.runner.paginated(
+            GitLabEvent.self,
+            apiHost: self.apiHost,
+            path: "projects/\(projectID)/events",
+            limit: limit,
+            credential: self.credential()
+        )
+        return events.map { self.activityEvent($0, fallbackRepoName: fallbackRepoName) }
+    }
+
+    private func activityEvent(_ event: GitLabEvent, fallbackRepoName: String) -> ActivityEvent {
+        let actor = event.authorUsername ?? event.author?.username ?? "GitLab"
+        let title = event.targetTitle
+            ?? event.pushData?.commitTitle
+            ?? [event.actionName, event.targetType].compactMap(\.self).joined(separator: " ")
+        let url = event.targetURL
+            ?? self.webHostURL().appending(path: fallbackRepoName)
+        return ActivityEvent(
+            title: title.isEmpty ? fallbackRepoName : title,
+            actor: actor,
+            actorAvatarURL: event.author?.avatarURL,
+            date: event.createdAt,
+            url: url,
+            eventType: event.actionName,
+            metadata: nil
+        )
+    }
+
+    private static func ciStatus(from gitLabStatus: String) -> CIStatus {
+        switch gitLabStatus.lowercased() {
+        case "success", "skipped":
+            .passing
+        case "failed", "canceled":
+            .failing
+        case "created", "waiting_for_resource", "preparing", "pending", "running", "manual", "scheduled":
+            .pending
+        default:
+            .unknown
+        }
     }
 
     private func releaseSummary(_ release: GitLabRelease, owner: String, name: String) -> RepoReleaseSummary? {
@@ -466,7 +632,7 @@ public actor GitLabClient: RepositoryService {
             .unknown
         }
         let encodedPath = Self.urlPathComponent(item.path)
-        let apiURL = self.apiHost.appending(path: "projects/\(Self.projectID(owner: owner, name: name))/repository/files/\(encodedPath)")
+        let apiURL = self.apiHost.appending(path: "projects/\(self.projectID(owner: owner, name: name))/repository/files/\(encodedPath)")
         return RepoContentItem(
             name: item.name,
             path: item.path,

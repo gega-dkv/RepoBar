@@ -93,7 +93,9 @@ extension AppState {
                 try await authenticator.authenticateBitbucketAPIToken(email: username ?? "", token: token, host: host)
             case .github:
                 try await self.patAuth.authenticate(pat: token, host: host)
-            case .forgejo, .gitea, .customGit:
+            case .forgejo, .gitea:
+                try await authenticator.authenticatePAT(provider: provider, token: token, host: host)
+            case .customGit:
                 throw ProviderTokenAuthError.unsupportedProvider(provider)
             }
             self.session.hasStoredTokens = true

@@ -150,6 +150,19 @@ struct TokenStoreTests {
         )
         #expect(privateTokenRequest.value(forHTTPHeaderField: "PRIVATE-TOKEN") == "glpat")
 
+        var tokenRequest = try URLRequest(url: #require(URL(string: "https://example.com")))
+        CredentialHeaderStyle.authorizationToken.apply(
+            to: &tokenRequest,
+            credential: ProviderCredential(
+                provider: .forgejo,
+                host: "codeberg.org",
+                kind: .pat,
+                headerStyle: .authorizationToken,
+                token: "forgejo-token"
+            )
+        )
+        #expect(tokenRequest.value(forHTTPHeaderField: "Authorization") == "token forgejo-token")
+
         var basicRequest = try URLRequest(url: #require(URL(string: "https://example.com")))
         CredentialHeaderStyle.basic.apply(
             to: &basicRequest,

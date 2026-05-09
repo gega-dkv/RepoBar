@@ -268,9 +268,9 @@ struct AccountSettingsView: View {
             }
         }
 
-        if self.selectedProvider == .gitlab || self.selectedProvider == .bitbucketCloud {
+        if self.selectedProvider == .gitlab || self.selectedProvider == .bitbucketCloud || self.selectedProvider == .forgejo || self.selectedProvider == .gitea {
             LabeledContent(self.selectedProvider == .bitbucketCloud ? "API Token" : "Token") {
-                SecureField(self.selectedProvider == .gitlab ? "glpat-..." : "API token", text: self.$patInput)
+                SecureField(self.tokenPlaceholder(for: self.selectedProvider), text: self.$patInput)
                     .frame(minWidth: self.enterpriseFieldMinWidth)
                     .layoutPriority(1)
             }
@@ -450,7 +450,10 @@ struct AccountSettingsView: View {
         if self.selectedProvider == .bitbucketCloud, self.bitbucketEmail.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return false
         }
-        return self.selectedProvider == .gitlab || self.selectedProvider == .bitbucketCloud
+        return self.selectedProvider == .gitlab
+            || self.selectedProvider == .bitbucketCloud
+            || self.selectedProvider == .forgejo
+            || self.selectedProvider == .gitea
     }
 
     private func createTokenURL() -> URL {
@@ -579,6 +582,19 @@ struct AccountSettingsView: View {
         }
     }
 
+    private func tokenPlaceholder(for provider: SourceControlProvider) -> String {
+        switch provider {
+        case .gitlab:
+            "glpat-..."
+        case .bitbucketCloud:
+            "API token"
+        case .forgejo, .gitea:
+            "access token"
+        case .github, .customGit:
+            "token"
+        }
+    }
+
     private func providerTokenURL(for provider: SourceControlProvider) -> URL? {
         switch provider {
         case .gitlab:
@@ -617,9 +633,9 @@ struct AccountSettingsView: View {
         case .bitbucketCloud:
             "Use your Atlassian email with a Bitbucket API token. RepoBar stores it as Basic auth credentials."
         case .forgejo:
-            "Host configuration is saved. Forgejo PAT login will be enabled after the Forgejo client is implemented."
+            "Use a Forgejo access token. API requests use the documented Authorization: token header."
         case .gitea:
-            "Host configuration is saved. Gitea PAT login will be enabled after the Gitea client is implemented."
+            "Use a Gitea access token. API requests use the documented Authorization: token header."
         case .customGit:
             "Custom Git hosts are local-only for now. RepoBar can save the host for remote URL matching and browser links."
         case .github:

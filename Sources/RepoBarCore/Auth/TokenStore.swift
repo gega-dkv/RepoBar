@@ -33,6 +33,7 @@ public enum TokenCredentialKind: String, Codable, Equatable, Sendable {
 
 public enum CredentialHeaderStyle: String, Codable, Equatable, Sendable {
     case authorizationBearer
+    case authorizationToken
     case privateToken
     case basic
     case none
@@ -41,6 +42,8 @@ public enum CredentialHeaderStyle: String, Codable, Equatable, Sendable {
         switch self {
         case .authorizationBearer:
             request.setValue("Bearer \(credential.token)", forHTTPHeaderField: "Authorization")
+        case .authorizationToken:
+            request.setValue("token \(credential.token)", forHTTPHeaderField: "Authorization")
         case .privateToken:
             request.setValue(credential.token, forHTTPHeaderField: "PRIVATE-TOKEN")
         case .basic:
@@ -369,7 +372,7 @@ public struct TokenStore: Sendable {
         case (.bitbucketCloud, .apiToken):
             .basic
         case (.forgejo, .pat), (.gitea, .pat):
-            .authorizationBearer
+            .authorizationToken
         case (_, .none), (_, .apiToken), (_, .pat):
             .none
         }

@@ -3,16 +3,19 @@ import Foundation
 public actor RepositoryServiceRouter: RepositoryService {
     private let githubClient: GitHubClient
     private let gitLabClient: GitLabClient
+    private let bitbucketClient: BitbucketClient
     private var activeProvider: SourceControlProvider
 
     public init(
         provider: SourceControlProvider = .github,
         githubClient: GitHubClient = GitHubClient(),
-        gitLabClient: GitLabClient = GitLabClient()
+        gitLabClient: GitLabClient = GitLabClient(),
+        bitbucketClient: BitbucketClient = BitbucketClient()
     ) {
         self.activeProvider = provider
         self.githubClient = githubClient
         self.gitLabClient = gitLabClient
+        self.bitbucketClient = bitbucketClient
     }
 
     public var provider: SourceControlProvider {
@@ -33,7 +36,9 @@ public actor RepositoryServiceRouter: RepositoryService {
             await self.githubClient.setAPIHost(host)
         case .gitlab:
             await self.gitLabClient.setAPIHost(host)
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            await self.bitbucketClient.setAPIHost(host)
+        case .forgejo, .gitea, .customGit:
             break
         }
     }
@@ -56,7 +61,9 @@ public actor RepositoryServiceRouter: RepositoryService {
                     expiresAt: tokens.expiresAt
                 )
             }
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            break
+        case .forgejo, .gitea, .customGit:
             break
         }
     }
@@ -67,7 +74,9 @@ public actor RepositoryServiceRouter: RepositoryService {
             await self.githubClient.rateLimitReset(now: now)
         case .gitlab:
             await self.gitLabClient.rateLimitReset(now: now)
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            await self.bitbucketClient.rateLimitReset(now: now)
+        case .forgejo, .gitea, .customGit:
             nil
         }
     }
@@ -78,7 +87,9 @@ public actor RepositoryServiceRouter: RepositoryService {
             await self.githubClient.rateLimitMessage(now: now)
         case .gitlab:
             await self.gitLabClient.rateLimitMessage(now: now)
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            await self.bitbucketClient.rateLimitMessage(now: now)
+        case .forgejo, .gitea, .customGit:
             nil
         }
     }
@@ -96,6 +107,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.repositoryList(limit: limit)
         } gitLab: {
             try await self.gitLabClient.repositoryList(limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.repositoryList(limit: limit)
         }
     }
 
@@ -104,6 +117,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.cachedRepositoryList(limit: limit)
         } gitLab: {
             try await self.gitLabClient.cachedRepositoryList(limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.cachedRepositoryList(limit: limit)
         }
     }
 
@@ -112,6 +127,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.currentUser()
         } gitLab: {
             try await self.gitLabClient.currentUser()
+        } bitbucket: {
+            try await self.bitbucketClient.currentUser()
         }
     }
 
@@ -120,6 +137,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.searchRepositories(matching: query)
         } gitLab: {
             try await self.gitLabClient.searchRepositories(matching: query)
+        } bitbucket: {
+            try await self.bitbucketClient.searchRepositories(matching: query)
         }
     }
 
@@ -128,6 +147,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentRepositories(limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentRepositories(limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentRepositories(limit: limit)
         }
     }
 
@@ -136,6 +157,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.prefetchedRepositories(max: max)
         } gitLab: {
             try await self.gitLabClient.prefetchedRepositories(max: max)
+        } bitbucket: {
+            try await self.bitbucketClient.prefetchedRepositories(max: max)
         }
     }
 
@@ -144,6 +167,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.defaultRepositories(limit: limit, for: username)
         } gitLab: {
             try await self.gitLabClient.defaultRepositories(limit: limit, for: username)
+        } bitbucket: {
+            try await self.bitbucketClient.defaultRepositories(limit: limit, for: username)
         }
     }
 
@@ -152,6 +177,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.activityRepositories(limit: limit)
         } gitLab: {
             try await self.gitLabClient.activityRepositories(limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.activityRepositories(limit: limit)
         }
     }
 
@@ -160,6 +187,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.fullRepository(owner: owner, name: name)
         } gitLab: {
             try await self.gitLabClient.fullRepository(owner: owner, name: name)
+        } bitbucket: {
+            try await self.bitbucketClient.fullRepository(owner: owner, name: name)
         }
     }
 
@@ -168,6 +197,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.latestRelease(owner: owner, name: name)
         } gitLab: {
             try await self.gitLabClient.latestRelease(owner: owner, name: name)
+        } bitbucket: {
+            try await self.bitbucketClient.latestRelease(owner: owner, name: name)
         }
     }
 
@@ -227,6 +258,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentPullRequests(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentPullRequests(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentPullRequests(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -235,6 +268,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentIssues(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentIssues(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentIssues(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -243,6 +278,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentReleases(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentReleases(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentReleases(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -251,6 +288,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentWorkflowRuns(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentWorkflowRuns(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentWorkflowRuns(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -259,6 +298,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentCommits(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentCommits(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentCommits(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -267,6 +308,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentDiscussions(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentDiscussions(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentDiscussions(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -275,6 +318,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentTags(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentTags(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentTags(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -283,6 +328,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.recentBranches(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.recentBranches(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.recentBranches(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -291,6 +338,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.repoContents(owner: owner, name: name, path: path)
         } gitLab: {
             try await self.gitLabClient.repoContents(owner: owner, name: name, path: path)
+        } bitbucket: {
+            try await self.bitbucketClient.repoContents(owner: owner, name: name, path: path)
         }
     }
 
@@ -299,6 +348,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.repoFileContents(owner: owner, name: name, path: path)
         } gitLab: {
             try await self.gitLabClient.repoFileContents(owner: owner, name: name, path: path)
+        } bitbucket: {
+            try await self.bitbucketClient.repoFileContents(owner: owner, name: name, path: path)
         }
     }
 
@@ -307,6 +358,8 @@ public actor RepositoryServiceRouter: RepositoryService {
             try await self.githubClient.topContributors(owner: owner, name: name, limit: limit)
         } gitLab: {
             try await self.gitLabClient.topContributors(owner: owner, name: name, limit: limit)
+        } bitbucket: {
+            try await self.bitbucketClient.topContributors(owner: owner, name: name, limit: limit)
         }
     }
 
@@ -316,7 +369,9 @@ public actor RepositoryServiceRouter: RepositoryService {
             await self.githubClient.diagnostics()
         case .gitlab:
             await self.gitLabClient.diagnostics()
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            await self.bitbucketClient.diagnostics()
+        case .forgejo, .gitea, .customGit:
             .empty
         }
     }
@@ -327,7 +382,9 @@ public actor RepositoryServiceRouter: RepositoryService {
             await self.githubClient.clearCache()
         case .gitlab:
             await self.gitLabClient.clearCache()
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            await self.bitbucketClient.clearCache()
+        case .forgejo, .gitea, .customGit:
             break
         }
     }
@@ -338,7 +395,9 @@ public actor RepositoryServiceRouter: RepositoryService {
             await self.githubClient.clearRepoDetailCache()
         case .gitlab:
             await self.gitLabClient.clearRepoDetailCache()
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            await self.bitbucketClient.clearRepoDetailCache()
+        case .forgejo, .gitea, .customGit:
             break
         }
     }
@@ -347,14 +406,21 @@ public actor RepositoryServiceRouter: RepositoryService {
         _ feature: String,
         gitLabUnsupported _: Bool = false,
         github: () async throws -> T,
-        gitLab: () async throws -> T
+        gitLab: () async throws -> T,
+        bitbucket: (() async throws -> T)? = nil
     ) async throws -> T {
         switch self.activeProvider {
         case .github:
             return try await github()
         case .gitlab:
             return try await gitLab()
-        case .bitbucketCloud, .forgejo, .gitea, .customGit:
+        case .bitbucketCloud:
+            guard let bitbucket else {
+                throw UnsupportedProviderFeature.unsupported(provider: self.activeProvider, feature: feature)
+            }
+
+            return try await bitbucket()
+        case .forgejo, .gitea, .customGit:
             throw UnsupportedProviderFeature.unsupported(provider: self.activeProvider, feature: feature)
         }
     }

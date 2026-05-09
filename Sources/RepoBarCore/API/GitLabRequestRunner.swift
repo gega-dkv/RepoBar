@@ -86,6 +86,27 @@ struct GitLabRequestRunner {
         try await self.response(apiHost: apiHost, path: path, queryItems: queryItems, credential: credential).0
     }
 
+    func count(
+        apiHost: URL,
+        path: String,
+        queryItems: [URLQueryItem] = [],
+        credential: ProviderCredential
+    ) async throws -> Int? {
+        let (data, response) = try await self.response(
+            apiHost: apiHost,
+            path: path,
+            queryItems: queryItems + [URLQueryItem(name: "per_page", value: "1")],
+            credential: credential
+        )
+        if let total = response.value(forHTTPHeaderField: "x-total"), let count = Int(total) {
+            return count
+        }
+        if let array = try? JSONSerialization.jsonObject(with: data) as? [Any] {
+            return array.count
+        }
+        return nil
+    }
+
     private func response(
         apiHost: URL,
         path: String,

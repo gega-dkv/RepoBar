@@ -234,3 +234,57 @@ struct GitLabContributor: Decodable {
     let email: String?
     let commits: Int
 }
+
+struct GitLabPipeline: Decodable {
+    let id: Int?
+    let iid: Int?
+    let status: String
+    let ref: String?
+    let webURL: URL?
+    let updatedAt: Date?
+    let createdAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case iid
+        case status
+        case ref
+        case webURL = "web_url"
+        case updatedAt = "updated_at"
+        case createdAt = "created_at"
+    }
+}
+
+struct GitLabEvent: Decodable {
+    let actionName: String?
+    let targetType: String?
+    let targetTitle: String?
+    let authorUsername: String?
+    let author: GitLabIssue.Author?
+    let createdAt: Date
+    let targetURL: URL?
+    let pushData: PushData?
+
+    enum CodingKeys: String, CodingKey {
+        case actionName = "action_name"
+        case targetType = "target_type"
+        case targetTitle = "target_title"
+        case authorUsername = "author_username"
+        case author
+        case createdAt = "created_at"
+        case targetURL = "target_url"
+        case pushData = "push_data"
+    }
+
+    struct PushData: Decodable {
+        let commitTitle: String?
+        let ref: String?
+        let commitTo: String?
+
+        enum CodingKeys: String, CodingKey {
+            case commitTitle = "commit_title"
+            case ref
+            case commitTo = "commit_to"
+        }
+    }
+}

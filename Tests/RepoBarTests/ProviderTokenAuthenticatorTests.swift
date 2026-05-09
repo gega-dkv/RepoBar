@@ -73,6 +73,42 @@ struct ProviderTokenAuthenticatorTests {
     }
 
     @Test
+    func `forgejo PAT uses token auth and saves credential`() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("repobar-token-store-\(UUID().uuidString)", isDirectory: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = TokenStore(service: "com.steipete.repobar.auth.tests.\(UUID().uuidString)", storage: .file(directory))
+        let handlerID = UUID().uuidString
+        Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            #expect(request.url?.absoluteString == "https://codeberg.org/api/v1/user")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "token forgejo-token")
+
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            return (Data(#"{"login":"forgejo-user"}"#.utf8), response)
+        }
+        defer { Self.MockURLProtocol.unregister(handlerID: handlerID) }
+
+        let authenticator = ProviderTokenAuthenticator(
+            tokenStore: store,
+            session: Self.session(handlerID: handlerID)
+        )
+        let user = try await authenticator.authenticatePAT(
+            provider: .forgejo,
+            token: "forgejo-token",
+            host: #require(URL(string: "https://codeberg.org"))
+        )
+        let credential = try store.loadCredential(
+            provider: .forgejo,
+            host: #require(URL(string: "https://codeberg.org")),
+            kind: .pat
+        )
+
+        #expect(user.username == "forgejo-user")
+        #expect(credential?.token == "forgejo-token")
+        #expect(credential?.headerStyle == .authorizationToken)
+    }
+
+    @Test
     func `failed provider token validation does not save credential`() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("repobar-token-store-\(UUID().uuidString)", isDirectory: true)

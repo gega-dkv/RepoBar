@@ -178,7 +178,7 @@ Checked with Context7 library search on 2026-05-08.
   - require Atlassian email plus API token
   - validate with Bitbucket current-user endpoint
   - store email and token together as a credential.
-- [ ] Add Codeberg/Forgejo PAT login after fetching exact Forgejo API auth docs.
+- [x] Add Codeberg/Forgejo PAT login after fetching exact Forgejo API auth docs.
 - [x] Add generic custom Git host setup without API credentials:
   - web base URL
   - SSH/HTTPS clone host
@@ -200,7 +200,7 @@ Checked with Context7 library search on 2026-05-08.
 - [x] Reuse shared HTTP/cache helpers where possible, but do not force GitLab into `GitHubRequestRunner` if header semantics diverge.
 - [x] Implement GitLab pagination using `x-next-page` first and `Link` as fallback.
 - [x] URL-encode project paths when using them as `:id`, for example `group%2Fsubgroup%2Fproject`.
-- [ ] Prefer GitLab project `id` for stable API calls once a project is known.
+- [x] Prefer GitLab project `id` for stable API calls once a project is known.
 - [x] Map GitLab project fields into `Repository`:
   - `id`
   - `name`
@@ -217,17 +217,17 @@ Checked with Context7 library search on 2026-05-08.
 - [x] Repository detail endpoint candidate:
   - `GET /projects/:id`
   - or `GET /projects/:urlEncodedPath`.
-- [ ] Open issue count:
+- [x] Open issue count:
   - `GET /projects/:id/issues?state=opened&per_page=1`
   - prefer `x-total` when present.
-- [ ] Open merge request count:
+- [x] Open merge request count:
   - `GET /projects/:id/merge_requests?state=opened&per_page=1`
   - map to current `openPulls` until UI vocabulary is provider-aware.
 - [x] Recent issues:
   - `GET /projects/:id/issues?state=opened&order_by=updated_at&sort=desc&per_page=<limit>`.
 - [x] Recent merge requests:
   - `GET /projects/:id/merge_requests?state=opened&order_by=updated_at&sort=desc&per_page=<limit>`.
-- [ ] CI status:
+- [x] CI status:
   - `GET /projects/:id/pipelines?per_page=1`
   - optionally pass `ref=<default_branch>` when known.
   - map `success`, `failed`, `canceled`, `skipped`, `running`, `pending`, and `manual` to `CIStatus`.
@@ -243,7 +243,7 @@ Checked with Context7 library search on 2026-05-08.
   - `GET /projects/:id/repository/contributors?per_page=<limit>`.
 - [x] Contents:
   - repository tree and file endpoints, with a small adapter so existing changelog and file preview flows still work.
-- [ ] Activity:
+- [x] Activity:
   - start with project events if they provide enough signal.
   - If global activity parity is weak, show per-repo latest activity only and document the limitation.
 - [x] Unsupported GitHub-only data:
@@ -253,12 +253,12 @@ Checked with Context7 library search on 2026-05-08.
 
 ## Phase 5: Bitbucket Cloud Client
 
-- [ ] Add `Sources/RepoBarCore/API/BitbucketClient.swift`.
-- [ ] Add `BitbucketRestAPI`, `BitbucketRequestRunner`, `BitbucketModels`, `BitbucketRecentDecoders`, and `BitbucketStatusMapper`.
-- [ ] Use API base `https://api.bitbucket.org/2.0`.
-- [ ] Implement Basic auth for API tokens and Bearer auth for future OAuth.
-- [ ] Implement Bitbucket pagination from response `next` URLs and any available page metadata.
-- [ ] Map repository fields:
+- [x] Add `Sources/RepoBarCore/API/BitbucketClient.swift`.
+- [x] Add Bitbucket REST support files: `BitbucketRequestRunner`, `BitbucketModels`, and summary/status mapping inside `BitbucketClient`.
+- [x] Use API base `https://api.bitbucket.org/2.0`.
+- [x] Implement Basic auth for API tokens and Bearer auth for future OAuth.
+- [x] Implement Bitbucket pagination from response `next` URLs and any available page metadata.
+- [x] Map repository fields:
   - `uuid`
   - `full_name`
   - `name`
@@ -268,29 +268,28 @@ Checked with Context7 library search on 2026-05-08.
   - `links.html.href`
   - `links.clone`
   - `scm`.
-- [ ] Repository list endpoint candidate:
-  - `GET /2.0/repositories/{workspace}` for known workspaces
-  - investigate current-user/workspace discovery before implementation.
-- [ ] Repository detail endpoint:
+- [x] Repository list endpoint candidate:
+  - `GET /2.0/user/permissions/repositories` for authenticated accessible repositories.
+- [x] Repository detail endpoint:
   - `GET /2.0/repositories/{workspace}/{repo_slug}`.
-- [ ] Pull requests:
+- [x] Pull requests:
   - `GET /2.0/repositories/{workspace}/{repo_slug}/pullrequests`.
-- [ ] Issues:
+- [x] Issues:
   - `GET /2.0/repositories/{workspace}/{repo_slug}/issues`.
   - Hide issue rows when `has_issues` is false.
-- [ ] Branches:
+- [x] Branches:
   - `GET /2.0/repositories/{workspace}/{repo_slug}/refs/branches`.
-- [ ] Tags:
+- [x] Tags:
   - `GET /2.0/repositories/{workspace}/{repo_slug}/refs/tags`.
-- [ ] Commits:
+- [x] Commits:
   - use repository `links.commits.href` or documented commits endpoint.
-- [ ] Contents:
+- [x] Contents:
   - use `/src` endpoints for tree and file preview.
-- [ ] CI:
+- [x] CI:
   - map Bitbucket Pipelines if accessible; otherwise hide CI until implemented.
-- [ ] Releases:
+- [x] Releases:
   - Bitbucket Cloud does not have a GitHub/GitLab-style releases feature. Consider downloads/tags as a fallback only if the UI can label it honestly.
-- [ ] Unsupported GitHub-only data:
+- [x] Unsupported GitHub-only data:
   - traffic stats: hide.
   - contribution heatmap: hide.
   - discussions: hide.
