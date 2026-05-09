@@ -14,38 +14,46 @@ struct StatusBarMenuManagerTests {
         let item = try #require(manager.statusItem)
         let button = try #require(item.button)
         #expect(item.menu != nil)
-        #expect(item.autosaveName != "repobar-main")
+        #expect(item.autosaveName == "repobar-main")
         #expect(button.isEnabled)
+        #expect(button.target == nil)
+        #expect(button.action == nil)
         #expect(!self.containsHostingView(button))
     }
 
     @MainActor
     @Test
-    func `keyboard reference status item is hidden instead of recreated`() throws {
+    func `GitHub reference status item is collapsed between matches`() throws {
         let appState = AppState()
         let manager = StatusBarMenuManager(appState: appState, statusBar: NSStatusBar())
-        appState.session.keyboardIssueMatch = try self.makeMatch()
+        appState.session.gitHubReferenceMatch = try self.makeMatch()
 
-        manager.syncKeyboardIssueStatusItemForTesting()
+        manager.syncGitHubReferenceStatusItemForTesting()
 
-        let item = try #require(manager.keyboardIssueStatusItemForTesting())
-        let menu = try #require(manager.keyboardIssueMenuForTesting())
+        let item = try #require(manager.gitHubReferenceStatusItemForTesting())
+        let menu = try #require(manager.gitHubReferenceMenuForTesting())
         #expect(item.isVisible)
         #expect(item.menu === menu)
-        #expect(item.autosaveName != "repobar-github-reference")
+        #expect(item.autosaveName == "repobar-github-reference")
         let button = try #require(item.button)
         #expect(button.isEnabled)
+        #expect(button.target == nil)
+        #expect(button.action == nil)
         #expect(!self.containsHostingView(button))
         #expect(menu.items.contains { $0.title == "Open #42 in Browser" })
         #expect(menu.items.contains { $0.view is MenuItemHostingView })
         #expect(button.title.contains("#42 Open owner/repo"))
 
-        appState.session.keyboardIssueMatch = nil
-        manager.syncKeyboardIssueStatusItemForTesting()
+        appState.session.gitHubReferenceMatch = nil
+        manager.syncGitHubReferenceStatusItemForTesting()
 
-        #expect(manager.keyboardIssueStatusItemForTesting() === item)
-        #expect(!item.isVisible)
-        #expect(manager.keyboardIssueMenuForTesting() === menu)
+        #expect(manager.gitHubReferenceStatusItemForTesting() === item)
+        #expect(manager.gitHubReferenceMenuForTesting() == nil)
+        #expect(item.isVisible)
+        #expect(item.length == 0)
+        #expect(item.menu == nil)
+        #expect(button.isHidden)
+        #expect(!button.isEnabled)
     }
 
     private func makeMatch() throws -> GitHubReferenceMatch {

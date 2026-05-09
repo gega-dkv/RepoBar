@@ -4,31 +4,31 @@ import AppKit
 import Testing
 
 @MainActor
-struct KeyboardIssueMonitorTests {
+struct GitHubReferenceMonitorTests {
     @Test
     func `bare numbers and issue prefixes become issue queries`() {
-        #expect(KeyboardIssueMonitor.query(from: "73655") == .issueNumber(73655))
-        #expect(KeyboardIssueMonitor.query(from: "7") == .issueNumber(7))
-        #expect(KeyboardIssueMonitor.query(from: "#7") == .issueNumber(7))
-        #expect(KeyboardIssueMonitor.query(from: "gh-42") == .issueNumber(42))
-        #expect(KeyboardIssueMonitor.query(from: "a73655") == nil)
+        #expect(GitHubReferenceMonitor.query(from: "73655") == .issueNumber(73655))
+        #expect(GitHubReferenceMonitor.query(from: "7") == .issueNumber(7))
+        #expect(GitHubReferenceMonitor.query(from: "#7") == .issueNumber(7))
+        #expect(GitHubReferenceMonitor.query(from: "gh-42") == .issueNumber(42))
+        #expect(GitHubReferenceMonitor.query(from: "a73655") == nil)
     }
 
     @Test
     func `commit hashes become commit queries`() {
-        #expect(KeyboardIssueMonitor.query(from: "ffd212ca43") == .commitHash("ffd212ca43"))
-        #expect(KeyboardIssueMonitor.query(from: "1234567") == .issueNumber(1_234_567))
-        #expect(KeyboardIssueMonitor.query(from: "abcdef") == nil)
+        #expect(GitHubReferenceMonitor.query(from: "ffd212ca43") == .commitHash("ffd212ca43"))
+        #expect(GitHubReferenceMonitor.query(from: "1234567") == .issueNumber(1_234_567))
+        #expect(GitHubReferenceMonitor.query(from: "abcdef") == nil)
     }
 
     @Test
     func `github issue and pr urls become repository scoped issue queries`() {
         #expect(
-            KeyboardIssueMonitor.query(from: "https://github.com/openclaw/openclaw/issues/73655") ==
+            GitHubReferenceMonitor.query(from: "https://github.com/openclaw/openclaw/issues/73655") ==
                 .repositoryIssueNumber(repositoryFullName: "openclaw/openclaw", number: 73655)
         )
         #expect(
-            KeyboardIssueMonitor.query(from: "https://github.com/openclaw/openclaw/pull/123") ==
+            GitHubReferenceMonitor.query(from: "https://github.com/openclaw/openclaw/pull/123") ==
                 .repositoryIssueNumber(repositoryFullName: "openclaw/openclaw", number: 123)
         )
     }
@@ -36,11 +36,11 @@ struct KeyboardIssueMonitorTests {
     @Test
     func `github commit urls become repository scoped commit queries`() {
         #expect(
-            KeyboardIssueMonitor.query(from: "https://github.com/openclaw/openclaw/commit/ffd212ca43abcdef") ==
+            GitHubReferenceMonitor.query(from: "https://github.com/openclaw/openclaw/commit/ffd212ca43abcdef") ==
                 .repositoryCommitHash(repositoryFullName: "openclaw/openclaw", hash: "ffd212ca43abcdef")
         )
         #expect(
-            KeyboardIssueMonitor.query(from: "https://github.com/openclaw/openclaw/commits/ffd212ca43") ==
+            GitHubReferenceMonitor.query(from: "https://github.com/openclaw/openclaw/commits/ffd212ca43") ==
                 .repositoryCommitHash(repositoryFullName: "openclaw/openclaw", hash: "ffd212ca43")
         )
     }
@@ -51,13 +51,13 @@ struct KeyboardIssueMonitorTests {
         pasteboard.clearContents()
 
         let stream = AsyncStream<GitHubReferenceQuery> { continuation in
-            let monitor = KeyboardIssueMonitor(pasteboard: pasteboard) { query in
+            let monitor = GitHubReferenceMonitor(pasteboard: pasteboard) { query in
                 continuation.yield(query)
             }
             continuation.onTermination = { _ in
                 Task { @MainActor in monitor.stop() }
             }
-            monitor.start(includeKeyboardEvents: false)
+            monitor.start()
         }
 
         pasteboard.clearContents()
@@ -79,7 +79,7 @@ struct KeyboardIssueMonitorTests {
         pasteboard.clearContents()
 
         let stream = AsyncStream<Event> { continuation in
-            let monitor = KeyboardIssueMonitor(
+            let monitor = GitHubReferenceMonitor(
                 pasteboard: pasteboard,
                 onPasteboardWithoutReference: {
                     continuation.yield(.clear)
@@ -91,7 +91,7 @@ struct KeyboardIssueMonitorTests {
             continuation.onTermination = { _ in
                 Task { @MainActor in monitor.stop() }
             }
-            monitor.start(includeKeyboardEvents: false)
+            monitor.start()
         }
 
         pasteboard.clearContents()

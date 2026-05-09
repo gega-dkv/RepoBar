@@ -14,14 +14,12 @@ final class AppState {
     let refreshScheduler = RefreshScheduler()
     let settingsStore = SettingsStore()
     let localRepoManager = LocalRepoManager()
-    let accessibilityPermission = AccessibilityPermissionManager()
     let menuRefreshInterval: TimeInterval = 30
     var refreshTask: Task<Void, Never>?
     var localProjectsTask: Task<Void, Never>?
     private var tokenRefreshTask: Task<Void, Never>?
-    private var accessibilityPermissionTask: Task<Void, Never>?
     var menuRefreshTask: Task<Void, Never>?
-    private var keyboardIssueMonitor: KeyboardIssueMonitor?
+    private var gitHubReferenceMonitor: GitHubReferenceMonitor?
     var refreshTaskToken = UUID()
     let hydrateConcurrencyLimit = 4
     var prefetchTask: Task<Void, Never>?
@@ -85,17 +83,7 @@ final class AppState {
             try? await Task.sleep(for: .milliseconds(250))
             await self?.refreshRateLimitDisplayState()
         }
-        self.accessibilityPermissionTask = Task { [weak self] in
-            guard let self else { return }
-
-            while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(2))
-                if self.accessibilityPermission.refresh() {
-                    self.updateKeyboardIssueMonitor()
-                }
-            }
-        }
-        self.updateKeyboardIssueMonitor()
+        self.updateGitHubReferenceMonitor()
     }
 
     struct GlobalActivityResult {
@@ -133,40 +121,38 @@ final class AppState {
         self.settingsStore.save(self.session.settings)
     }
 
-    func updateKeyboardIssueMonitor() {
-        guard self.session.settings.issueNumberMonitor.enabled else {
-            Task { await DiagnosticsLogger.shared.message("keyboard reference monitor disabled") }
-            self.keyboardIssueMonitor?.stop()
-            self.keyboardIssueMonitor = nil
-            self.setKeyboardIssueMatch(nil)
+    func updateGitHubReferenceMonitor() {
+        guard self.session.settings.gitHubReferenceMonitor.enabled else {
+            Task { await DiagnosticsLogger.shared.message("GitHub reference monitor disabled") }
+            self.gitHubReferenceMonitor?.stop()
+            self.gitHubReferenceMonitor = nil
+            self.setGitHubReferenceMatch(nil)
             return
         }
 
-        if self.keyboardIssueMonitor == nil {
-            Task { await DiagnosticsLogger.shared.message("keyboard reference monitor created") }
-            self.keyboardIssueMonitor = KeyboardIssueMonitor(
+        if self.gitHubReferenceMonitor == nil {
+            Task { await DiagnosticsLogger.shared.message("GitHub reference monitor created") }
+            self.gitHubReferenceMonitor = GitHubReferenceMonitor(
                 onPasteboardWithoutReference: { [weak self] in
-                    await self?.clearTypedGitHubReference()
+                    await self?.clearGitHubReference()
                 },
                 onReference: { [weak self] query in
-                    await self?.resolveTypedGitHubReference(query)
+                    await self?.resolveGitHubReference(query)
                 }
             )
         }
-        let includeKeyboardEvents = self.session.settings.issueNumberMonitor.typedReferencesEnabled && self.accessibilityPermission.isTrusted
-        let mode = includeKeyboardEvents ? "keyboard+clipboard" : "clipboard-only"
-        Task { await DiagnosticsLogger.shared.message("GitHub reference monitor started mode=\(mode)") }
-        self.keyboardIssueMonitor?.start(includeKeyboardEvents: includeKeyboardEvents)
+        Task { await DiagnosticsLogger.shared.message("GitHub reference monitor started mode=clipboard-only") }
+        self.gitHubReferenceMonitor?.start()
     }
 
-    private func clearTypedGitHubReference() async {
-        guard self.session.settings.issueNumberMonitor.enabled else { return }
+    private func clearGitHubReference() async {
+        guard self.session.settings.gitHubReferenceMonitor.enabled else { return }
 
-        self.setKeyboardIssueMatch(nil)
+        self.setGitHubReferenceMatch(nil)
     }
 
-    private func resolveTypedGitHubReference(_ query: GitHubReferenceQuery) async {
-        guard self.session.settings.issueNumberMonitor.enabled else { return }
+    private func resolveGitHubReference(_ query: GitHubReferenceQuery) async {
+        guard self.session.settings.gitHubReferenceMonitor.enabled else { return }
 
         let repositories = self.githubReferenceCandidateRepositories()
         let candidateRepositories = if let repositoryFullName = query.repositoryFullName {
@@ -175,30 +161,30 @@ final class AppState {
             repositories
         }
         guard candidateRepositories.isEmpty == false else {
-            await self.setKeyboardIssueMatch(self.github.liveReferenceMatch(query: query))
+            await self.setGitHubReferenceMatch(self.github.liveReferenceMatch(query: query))
             return
         }
 
         let cachedMatches = await self.github.cachedReferenceMatches(
             query: query,
             repositories: candidateRepositories,
-            limit: AppLimits.IssueNumberMonitor.cacheLookupLimit
+            limit: AppLimits.GitHubReferenceMonitor.cacheLookupLimit
         )
         if let match = GitHubReferenceMatch.newestCreated(in: cachedMatches) {
-            self.setKeyboardIssueMatch(match)
+            self.setGitHubReferenceMatch(match)
             return
         }
 
         let liveMatch = await self.github.liveReferenceMatch(
             query: query,
-            repositories: Array(candidateRepositories.prefix(AppLimits.IssueNumberMonitor.liveLookupLimit))
+            repositories: Array(candidateRepositories.prefix(AppLimits.GitHubReferenceMonitor.liveLookupLimit))
         )
         if let liveMatch {
-            self.setKeyboardIssueMatch(liveMatch)
+            self.setGitHubReferenceMatch(liveMatch)
             return
         }
 
-        await self.setKeyboardIssueMatch(self.github.liveReferenceMatch(query: query))
+        await self.setGitHubReferenceMatch(self.github.liveReferenceMatch(query: query))
     }
 
     private func githubReferenceCandidateRepositories() -> [Repository] {
@@ -216,10 +202,10 @@ final class AppState {
         }
     }
 
-    private func setKeyboardIssueMatch(_ match: GitHubReferenceMatch?) {
-        guard self.session.keyboardIssueMatch != match else { return }
+    private func setGitHubReferenceMatch(_ match: GitHubReferenceMatch?) {
+        guard self.session.gitHubReferenceMatch != match else { return }
 
-        self.session.keyboardIssueMatch = match
-        NotificationCenter.default.post(name: .keyboardIssueMatchDidChange, object: nil)
+        self.session.gitHubReferenceMatch = match
+        NotificationCenter.default.post(name: .gitHubReferenceMatchDidChange, object: nil)
     }
 }

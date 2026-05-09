@@ -2,17 +2,17 @@
 
 ## 0.4.2 - 2026-05-06
 
-- Add an optional Advanced setting for a typed GitHub reference monitor that can surface issue, pull request, or commit-hash matches from accessible repositories as a separate menu bar item, with visible Accessibility permission setup and live GitHub fallback on cache misses.
+- Add an optional Advanced setting for a copied GitHub reference monitor that can surface issue, pull request, or commit-hash matches from accessible repositories as a separate menu bar item, with live GitHub fallback on cache misses.
 - Show per-endpoint GitHub cooldowns in the Rate Limits sidebar and diagnostics so commit-activity backoff is distinct from healthy REST/GraphQL quota buckets.
 - Stop showing a generic “not found” warning when a repository has no visible releases endpoint.
 - Hide the repository filter bar when the only available scope would be Local.
 - Resolve copied GitHub issue, pull request, and commit URLs through live GitHub even before signing in.
 - Move GitHub reference watcher pasteboard polling off the main thread so the menu bar stays responsive.
 - Restore AppKit-native status item menus, keep the status buttons enabled, and remove the watcher item when no match is visible.
-- Keep typed GitHub reference watching behind a separate Advanced setting so clipboard watching cannot install a global keyboard monitor by default.
+- Keep GitHub reference watching clipboard-only so RepoBar never needs Accessibility permission or global keyboard monitoring for this feature.
 - Show GitHub reference matches as a richer inline menu preview with state, kind, title, repository, and timestamp.
-- Stop using AppKit status item autosave names and explicitly tear down status items on quit to avoid stale menu bar item state across debug relaunches.
-- Hide the GitHub reference watcher status item between matches instead of recreating it, avoiding stale AppKit scene status items that can block menu clicks.
+- Use fresh AppKit autosave names for RepoBar status items and explicitly tear them down on quit to avoid stale menu bar item state across debug relaunches.
+- Collapse the GitHub reference watcher to a zero-width placeholder between matches so it keeps its menu bar placement while avoiding stale hit regions.
 - Remove misleading page-size count badges from Releases, Discussions, Tags, Branches, and Contributors submenu rows.
 - Sort repository activity events by timestamp so repo submenus do not show stale activity when GitHub returns events out of order.
 - Refresh the RepoBar website with a cleaner minimal design, dark-mode support, and clearer install/setup copy.

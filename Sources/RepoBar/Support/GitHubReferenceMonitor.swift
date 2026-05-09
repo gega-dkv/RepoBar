@@ -2,46 +2,29 @@ import AppKit
 import RepoBarCore
 
 @MainActor
-final class KeyboardIssueMonitor {
+final class GitHubReferenceMonitor {
     private let minimumBareDigits: Int
-    private let maximumTokenLength: Int
-    private let resetDelay: TimeInterval
     private let pasteboard: NSPasteboard
     private let onPasteboardWithoutReference: () async -> Void
     private let onReference: (GitHubReferenceQuery) async -> Void
-    private var globalMonitor: Any?
-    private var localMonitor: Any?
     private var pasteboardPoller: PasteboardTextPoller?
-    private var token = ""
-    private var resetTask: Task<Void, Never>?
-    private var includeKeyboardEvents = false
     private var isRunning = false
 
     init(
-        minimumBareDigits: Int = AppLimits.IssueNumberMonitor.minimumBareDigits,
-        maximumTokenLength: Int = AppLimits.IssueNumberMonitor.maximumTokenLength,
-        resetDelay: TimeInterval = AppLimits.IssueNumberMonitor.resetDelay,
+        minimumBareDigits: Int = AppLimits.GitHubReferenceMonitor.minimumBareDigits,
         pasteboard: NSPasteboard = .general,
         onPasteboardWithoutReference: @escaping () async -> Void = {},
         onReference: @escaping (GitHubReferenceQuery) async -> Void
     ) {
         self.minimumBareDigits = minimumBareDigits
-        self.maximumTokenLength = maximumTokenLength
-        self.resetDelay = resetDelay
         self.pasteboard = pasteboard
         self.onPasteboardWithoutReference = onPasteboardWithoutReference
         self.onReference = onReference
     }
 
-    func start(includeKeyboardEvents: Bool) {
-        guard self.isRunning == false || self.includeKeyboardEvents != includeKeyboardEvents else { return }
+    func start() {
+        guard self.isRunning == false else { return }
 
-        self.includeKeyboardEvents = includeKeyboardEvents
-        if includeKeyboardEvents {
-            self.startKeyboardMonitors()
-        } else {
-            self.stopKeyboardMonitors()
-        }
         if self.pasteboardPoller == nil {
             self.startPasteboardTimer()
         }
@@ -49,39 +32,9 @@ final class KeyboardIssueMonitor {
     }
 
     func stop() {
-        self.stopKeyboardMonitors()
         self.pasteboardPoller?.stop()
         self.pasteboardPoller = nil
-        self.resetTask?.cancel()
-        self.resetTask = nil
-        self.token = ""
-        self.includeKeyboardEvents = false
         self.isRunning = false
-    }
-
-    private func startKeyboardMonitors() {
-        if self.globalMonitor == nil {
-            self.globalMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                Task { @MainActor in self?.handle(event) }
-            }
-        }
-        if self.localMonitor == nil {
-            self.localMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-                self?.handle(event)
-                return event
-            }
-        }
-    }
-
-    private func stopKeyboardMonitors() {
-        if let globalMonitor {
-            NSEvent.removeMonitor(globalMonitor)
-        }
-        if let localMonitor {
-            NSEvent.removeMonitor(localMonitor)
-        }
-        self.globalMonitor = nil
-        self.localMonitor = nil
     }
 
     private func startPasteboardTimer() {
@@ -103,56 +56,7 @@ final class KeyboardIssueMonitor {
         Task { await self.onReference(query) }
     }
 
-    private func handle(_ event: NSEvent) {
-        guard self.shouldAccept(event: event) else {
-            self.flushToken()
-            return
-        }
-        guard let character = event.charactersIgnoringModifiers?.first else {
-            self.flushToken()
-            return
-        }
-        guard self.isTokenCharacter(character) else {
-            self.flushToken()
-            return
-        }
-
-        self.token.append(Character(character.lowercased()))
-        if self.token.count > self.maximumTokenLength {
-            self.token = String(self.token.suffix(self.maximumTokenLength))
-        }
-        self.resetSoon()
-    }
-
-    private func shouldAccept(event: NSEvent) -> Bool {
-        let flags = event.modifierFlags.intersection(.deviceIndependentFlagsMask)
-        let disallowed: NSEvent.ModifierFlags = [.command, .control, .option]
-        return flags.isDisjoint(with: disallowed)
-    }
-
-    private func resetSoon() {
-        self.resetTask?.cancel()
-        self.resetTask = Task { [weak self] in
-            guard let self else { return }
-
-            try? await Task.sleep(for: .seconds(self.resetDelay))
-            if !Task.isCancelled {
-                self.flushToken()
-            }
-        }
-    }
-
-    private func flushToken() {
-        self.resetTask?.cancel()
-        self.resetTask = nil
-        let token = self.token
-        self.token = ""
-        guard let query = Self.query(from: token, minimumBareDigits: self.minimumBareDigits) else { return }
-
-        Task { await self.onReference(query) }
-    }
-
-    static func query(from rawText: String, minimumBareDigits: Int = AppLimits.IssueNumberMonitor.minimumBareDigits) -> GitHubReferenceQuery? {
+    static func query(from rawText: String, minimumBareDigits: Int = AppLimits.GitHubReferenceMonitor.minimumBareDigits) -> GitHubReferenceQuery? {
         if let query = self.urlQuery(from: rawText) {
             return query
         }
@@ -225,9 +129,6 @@ final class KeyboardIssueMonitor {
         return token.contains { ("a" ... "f").contains($0) }
     }
 
-    private func isTokenCharacter(_ character: Character) -> Bool {
-        character.isLetter || character.isNumber || character == "#" || character == "-"
-    }
 }
 
 private final class PasteboardTextPoller: @unchecked Sendable {
