@@ -162,7 +162,10 @@ struct GitHubReferenceMonitorTests {
                 try await Task.sleep(for: .seconds(5))
                 throw CancellationError()
             }
-            let value = try await #require(group.next())
+            guard let value = try await group.next() else {
+                throw CancellationError()
+            }
+
             group.cancelAll()
             return value
         }
