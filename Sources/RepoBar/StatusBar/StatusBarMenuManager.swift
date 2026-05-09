@@ -756,12 +756,10 @@ private extension StatusBarMenuManager {
         openItem.image?.isTemplate = true
         menu.addItem(openItem)
 
-        let preview = GitHubReferencePreviewMenuItemView(match: match) { [weak self] in
-            self?.open(url: match.url)
-        }
-        let previewItem = self.menuItemFactory.makeItem(for: preview, enabled: true, highlightable: true)
-        previewItem.toolTip = self.gitHubReferenceMenuTitle(for: match)
-        menu.addItem(previewItem)
+        let browserItem = NSMenuItem()
+        browserItem.view = GitHubReferenceBrowserMenuItemView(match: match)
+        browserItem.toolTip = self.gitHubReferenceMenuTitle(for: match)
+        menu.addItem(browserItem)
 
         menu.addItem(.separator())
 

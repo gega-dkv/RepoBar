@@ -41,7 +41,9 @@ struct StatusBarMenuManagerTests {
         #expect(button.action == nil)
         #expect(!self.containsHostingView(button))
         #expect(menu.items.contains { $0.title == "Open #42 in Browser" })
-        #expect(menu.items.contains { $0.view is MenuItemHostingView })
+        let browserPreview = try #require(menu.items.compactMap(\.view).first { $0 is GitHubReferenceBrowserMenuItemView })
+        #expect(browserPreview.intrinsicContentSize.width >= 700)
+        #expect(browserPreview.intrinsicContentSize.height >= 500)
         #expect(button.title.contains("#42 Open owner/repo"))
 
         appState.session.gitHubReferenceMatch = nil
