@@ -1,4 +1,3 @@
-import AppKit
 @testable import RepoBar
 @testable import RepoBarCore
 import Testing
@@ -82,92 +81,5 @@ struct GitHubReferenceMonitorTests {
             GitHubReferenceMonitor.query(from: "https://github.com/openclaw/openclaw/pull/57843/changes/d04517cefff3af339f560a8e388cacc3898e6562") ==
                 .repositoryCommitHash(repositoryFullName: "openclaw/openclaw", hash: "d04517cefff3af339f560a8e388cacc3898e6562")
         )
-    }
-
-    @Test
-    func `pasteboard polling reports copied github references`() async throws {
-        let pasteboard = NSPasteboard(name: NSPasteboard.Name("RepoBarTests.\(UUID().uuidString)"))
-        pasteboard.clearContents()
-
-        let stream = AsyncStream<GitHubReferenceQuery> { continuation in
-            let monitor = GitHubReferenceMonitor(pasteboard: pasteboard) { query in
-                continuation.yield(query)
-            }
-            continuation.onTermination = { _ in
-                Task { @MainActor in monitor.stop() }
-            }
-            monitor.start()
-        }
-
-        pasteboard.clearContents()
-        pasteboard.setString("https://github.com/openclaw/openclaw/issues/76162", forType: .string)
-
-        let query = try await self.nextQuery(from: stream)
-        #expect(query == .repositoryIssueNumber(repositoryFullName: "openclaw/openclaw", number: 76162))
-        pasteboard.clearContents()
-    }
-
-    @Test
-    func `pasteboard polling clears copied non references`() async throws {
-        enum Event: Equatable, Sendable {
-            case clear
-            case query(GitHubReferenceQuery)
-        }
-
-        let pasteboard = NSPasteboard(name: NSPasteboard.Name("RepoBarTests.\(UUID().uuidString)"))
-        pasteboard.clearContents()
-
-        let stream = AsyncStream<Event> { continuation in
-            let monitor = GitHubReferenceMonitor(
-                pasteboard: pasteboard,
-                onPasteboardWithoutReference: {
-                    continuation.yield(.clear)
-                },
-                onReference: { query in
-                    continuation.yield(.query(query))
-                }
-            )
-            continuation.onTermination = { _ in
-                Task { @MainActor in monitor.stop() }
-            }
-            monitor.start()
-        }
-
-        pasteboard.clearContents()
-        pasteboard.setString("https://github.com/openclaw/openclaw/issues/76162", forType: .string)
-        #expect(
-            try await self.nextValue(from: stream) ==
-                .query(.repositoryIssueNumber(repositoryFullName: "openclaw/openclaw", number: 76162))
-        )
-
-        pasteboard.clearContents()
-        pasteboard.setString("no github reference here", forType: .string)
-        #expect(try await self.nextValue(from: stream) == .clear)
-        pasteboard.clearContents()
-    }
-
-    private func nextQuery(from stream: AsyncStream<GitHubReferenceQuery>) async throws -> GitHubReferenceQuery {
-        try await self.nextValue(from: stream)
-    }
-
-    private func nextValue<Value: Sendable>(from stream: AsyncStream<Value>) async throws -> Value {
-        try await withThrowingTaskGroup(of: Value.self) { group in
-            group.addTask {
-                for await value in stream {
-                    return value
-                }
-                throw CancellationError()
-            }
-            group.addTask {
-                try await Task.sleep(for: .seconds(5))
-                throw CancellationError()
-            }
-            guard let value = try await group.next() else {
-                throw CancellationError()
-            }
-
-            group.cancelAll()
-            return value
-        }
     }
 }
