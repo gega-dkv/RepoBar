@@ -10,7 +10,7 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
     }
 
     private let url: URL
-    private let webView: WKWebView
+    private let webView: WKWebView?
     private var hasLoaded = false
 
     override var intrinsicContentSize: NSSize {
@@ -19,10 +19,14 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
 
     init(match: GitHubReferenceMatch) {
         self.url = match.url
-        let configuration = WKWebViewConfiguration()
-        configuration.websiteDataStore = .default()
-        configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
-        self.webView = WKWebView(frame: .zero, configuration: configuration)
+        if Self.shouldCreateWebView {
+            let configuration = WKWebViewConfiguration()
+            configuration.websiteDataStore = .default()
+            configuration.preferences.javaScriptCanOpenWindowsAutomatically = false
+            self.webView = WKWebView(frame: .zero, configuration: configuration)
+        } else {
+            self.webView = nil
+        }
         super.init(frame: NSRect(origin: .zero, size: NSSize(width: Metrics.width, height: Metrics.height)))
         self.configureView()
     }
@@ -44,22 +48,29 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
     }
 
     private func configureView() {
-        self.webView.translatesAutoresizingMaskIntoConstraints = false
-        self.webView.allowsBackForwardNavigationGestures = false
-        self.addSubview(self.webView)
+        guard let webView = self.webView else { return }
+
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        webView.allowsBackForwardNavigationGestures = false
+        self.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            self.webView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
-            self.webView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
-            self.webView.topAnchor.constraint(equalTo: self.topAnchor),
-            self.webView.bottomAnchor.constraint(equalTo: self.bottomAnchor)
+            webView.leadingAnchor.constraint(equalTo: self.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: self.trailingAnchor),
+            webView.topAnchor.constraint(equalTo: self.topAnchor),
+            webView.bottomAnchor.constraint(equalTo: self.bottomAnchor)
         ])
     }
 
     private func loadIfNeeded() {
-        guard !self.hasLoaded else { return }
+        guard !self.hasLoaded, let webView = self.webView else { return }
 
         self.hasLoaded = true
-        self.webView.load(URLRequest(url: self.url))
+        webView.load(URLRequest(url: self.url))
+    }
+
+    private static var shouldCreateWebView: Bool {
+        ProcessInfo.processInfo.environment["CI"] != "true" &&
+            ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
     }
 }
