@@ -39,6 +39,10 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
         self.loadIfNeeded()
     }
 
+    func preload() {
+        self.loadIfNeeded()
+    }
+
     private func configureView() {
         self.webView.translatesAutoresizingMaskIntoConstraints = false
         self.webView.allowsBackForwardNavigationGestures = false

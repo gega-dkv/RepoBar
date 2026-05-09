@@ -51,6 +51,7 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
     private var lastMainMenuWidthSignature: MenuBuildSignature?
     private var pendingMenuReopen = false
     private var gitHubReferenceSyncTask: Task<Void, Never>?
+    private var gitHubReferenceMenuMatch: GitHubReferenceMatch?
     var webURLBuilder: RepoWebURLBuilder {
         RepoWebURLBuilder(host: self.appState.session.settings.githubHost)
     }
@@ -257,6 +258,7 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
         guard let item = self.gitHubReferenceStatusItem else { return }
 
         self.gitHubReferenceMenu = nil
+        self.gitHubReferenceMenuMatch = nil
         self.collapseGitHubReferenceStatusItem(item)
         self.auditStatusItems("hideGitHubReferenceStatusItem")
     }
@@ -293,6 +295,7 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
 
     private func removeGitHubReferenceStatusItem() {
         self.gitHubReferenceMenu = nil
+        self.gitHubReferenceMenuMatch = nil
         guard let item = self.gitHubReferenceStatusItem else { return }
 
         self.collapseGitHubReferenceStatusItem(item)
@@ -746,7 +749,10 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
 
 private extension StatusBarMenuManager {
     func populateGitHubReferenceMenu(_ menu: NSMenu, match: GitHubReferenceMatch) {
+        guard self.gitHubReferenceMenuMatch != match else { return }
+
         menu.removeAllItems()
+        self.gitHubReferenceMenuMatch = match
 
         let openTitle = "Open \(match.query.displayText) in Browser"
         let openItem = NSMenuItem(title: openTitle, action: #selector(self.openGitHubReferenceMatch(_:)), keyEquivalent: "")
@@ -757,7 +763,11 @@ private extension StatusBarMenuManager {
         menu.addItem(openItem)
 
         let browserItem = NSMenuItem()
-        browserItem.view = GitHubReferenceBrowserMenuItemView(match: match)
+        let browserView = GitHubReferenceBrowserMenuItemView(match: match)
+        if self.shouldPreloadGitHubReferenceBrowserPreview {
+            browserView.preload()
+        }
+        browserItem.view = browserView
         browserItem.toolTip = self.gitHubReferenceMenuTitle(for: match)
         menu.addItem(browserItem)
 
@@ -785,6 +795,10 @@ private extension StatusBarMenuManager {
         }
 
         self.populateGitHubReferenceMenu(menu, match: match)
+    }
+
+    var shouldPreloadGitHubReferenceBrowserPreview: Bool {
+        ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] == nil
     }
 
     func gitHubReferenceSystemImage(for match: GitHubReferenceMatch) -> String {

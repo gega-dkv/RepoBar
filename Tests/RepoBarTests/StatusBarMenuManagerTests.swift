@@ -44,6 +44,9 @@ struct StatusBarMenuManagerTests {
         let browserPreview = try #require(menu.items.compactMap(\.view).first { $0 is GitHubReferenceBrowserMenuItemView })
         #expect(browserPreview.intrinsicContentSize.width >= 700)
         #expect(browserPreview.intrinsicContentSize.height >= 500)
+        manager.syncGitHubReferenceStatusItemForTesting()
+        let secondBrowserPreview = try #require(menu.items.compactMap(\.view).first { $0 is GitHubReferenceBrowserMenuItemView })
+        #expect(secondBrowserPreview === browserPreview)
         #expect(button.title.contains("#42 Open owner/repo"))
 
         appState.session.gitHubReferenceMatch = nil
