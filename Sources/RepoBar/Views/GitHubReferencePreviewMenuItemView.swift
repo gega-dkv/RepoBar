@@ -10,13 +10,22 @@ struct GitHubReferencePreviewMenuItemView: View {
         RecentItemRowView(alignment: .top, onOpen: self.onOpen) {
             self.icon
         } content: {
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 7) {
                 self.header
                 Text(self.match.title)
-                    .font(.callout.weight(.medium))
+                    .font(.callout.weight(.semibold))
                     .foregroundStyle(MenuHighlightStyle.primary(self.isHighlighted))
-                    .lineLimit(3)
+                    .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
+
+                if let bodyPreview = self.match.bodyPreview, bodyPreview.isEmpty == false {
+                    Text(bodyPreview)
+                        .font(.caption)
+                        .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                        .lineLimit(7)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.disabled)
+                }
 
                 HStack(spacing: 6) {
                     Text(self.match.repositoryFullName)
@@ -24,13 +33,20 @@ struct GitHubReferencePreviewMenuItemView: View {
                         .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
                         .lineLimit(1)
 
+                    if let authorLogin = self.match.authorLogin, authorLogin.isEmpty == false {
+                        Text(authorLogin)
+                            .font(.caption)
+                            .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                            .lineLimit(1)
+                    }
+
                     Text(self.dateLabel)
                         .font(.caption2)
                         .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
                         .lineLimit(1)
                 }
             }
-            .frame(minWidth: 520, maxWidth: .infinity, alignment: .leading)
+            .frame(minWidth: 640, maxWidth: 720, minHeight: self.match.bodyPreview == nil ? 74 : 160, alignment: .leading)
         }
     }
 

@@ -261,14 +261,16 @@ private extension GitHubReferenceQuery {
 
 private struct IssueLookupResponse: Decodable {
     let title: String
+    let body: String?
     let htmlUrl: URL
     let state: String
     let createdAt: Date
     let updatedAt: Date
     let pullRequest: PullRequestMarker?
+    let user: LookupUser?
 
     enum CodingKeys: String, CodingKey {
-        case title, state
+        case title, body, state, user
         case htmlUrl = "html_url"
         case createdAt = "created_at"
         case updatedAt = "updated_at"
@@ -284,12 +286,35 @@ private struct IssueLookupResponse: Decodable {
             kind: self.pullRequest == nil ? .issue : .pullRequest,
             state: GitHubReferenceState(rawValue: self.state.lowercased()),
             createdAt: self.createdAt,
-            updatedAt: self.updatedAt
+            updatedAt: self.updatedAt,
+            bodyPreview: Self.bodyPreview(from: self.body),
+            authorLogin: self.user?.login
         )
+    }
+
+    private static func bodyPreview(from body: String?) -> String? {
+        guard let body else { return nil }
+
+        let collapsed = body
+            .replacingOccurrences(of: "\r", with: "\n")
+            .split(whereSeparator: \.isNewline)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { $0.isEmpty == false }
+            .joined(separator: " ")
+        guard collapsed.isEmpty == false else { return nil }
+
+        let limit = 360
+        return collapsed.count > limit
+            ? "\(collapsed.prefix(limit - 1))…"
+            : collapsed
     }
 }
 
 private struct PullRequestMarker: Decodable {}
+
+private struct LookupUser: Decodable {
+    let login: String
+}
 
 private struct CommitLookupResponse: Decodable {
     let htmlUrl: URL

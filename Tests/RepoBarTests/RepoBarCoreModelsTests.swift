@@ -142,6 +142,26 @@ struct RepoBarCoreModelsTests {
     }
 
     @Test
+    func `github reference match stores preview metadata`() throws {
+        let url = try #require(URL(string: "https://example.com"))
+        let match = GitHubReferenceMatch(
+            query: .repositoryIssueNumber(repositoryFullName: "owner/repo", number: 5),
+            title: "Title",
+            url: url,
+            repositoryFullName: "owner/repo",
+            kind: .pullRequest,
+            state: .open,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10),
+            updatedAt: Date(timeIntervalSinceReferenceDate: 20),
+            bodyPreview: "Preview text",
+            authorLogin: "alice"
+        )
+
+        #expect(match.bodyPreview == "Preview text")
+        #expect(match.authorLogin == "alice")
+    }
+
+    @Test
     func `github reference query display text`() {
         #expect(GitHubReferenceQuery.issueNumber(7).displayText == "#7")
         #expect(

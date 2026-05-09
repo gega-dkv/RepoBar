@@ -72,6 +72,8 @@ public struct GitHubReferenceMatch: Sendable, Hashable {
     public let state: GitHubReferenceState?
     public let createdAt: Date?
     public let updatedAt: Date
+    public let bodyPreview: String?
+    public let authorLogin: String?
 
     public init(
         query: GitHubReferenceQuery,
@@ -81,7 +83,9 @@ public struct GitHubReferenceMatch: Sendable, Hashable {
         kind: GitHubReferenceKind,
         state: GitHubReferenceState?,
         createdAt: Date?,
-        updatedAt: Date
+        updatedAt: Date,
+        bodyPreview: String? = nil,
+        authorLogin: String? = nil
     ) {
         self.query = query
         self.title = title
@@ -91,6 +95,8 @@ public struct GitHubReferenceMatch: Sendable, Hashable {
         self.state = state
         self.createdAt = createdAt
         self.updatedAt = updatedAt
+        self.bodyPreview = bodyPreview
+        self.authorLogin = authorLogin
     }
 
     public static func newestCreated(in matches: [GitHubReferenceMatch]) -> GitHubReferenceMatch? {
