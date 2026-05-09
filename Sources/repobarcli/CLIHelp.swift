@@ -168,81 +168,85 @@ enum HelpTarget: String {
     }
 }
 
+private func rootHelpText() -> String {
+    """
+    repobar - list repositories by activity, issues, PRs, stars
+
+    Usage:
+      repobar [repos] [--limit N] [--age DAYS] [--release] [--event] [--forks] [--archived] [--scope VAL] [--filter VAL]
+              [--pinned-only] [--only-with VAL] [--owner LOGIN] [--mine] [--json] [--plain] [--sort KEY]
+      repobar repo <owner/name> [--traffic] [--heatmap] [--release] [--json] [--plain]
+      repobar issues <owner/name> [--limit N] [--json] [--plain]
+      repobar pulls <owner/name> [--limit N] [--json] [--plain]
+      repobar releases <owner/name> [--limit N] [--json] [--plain]
+      repobar ci <owner/name> [--limit N] [--json] [--plain]
+      repobar discussions <owner/name> [--limit N] [--json] [--plain]
+      repobar tags <owner/name> [--limit N] [--json] [--plain]
+      repobar branches <owner/name> [--limit N] [--json] [--plain]
+      repobar contributors <owner/name> [--limit N] [--json] [--plain]
+      repobar commits [<owner/name>|<login>] [--limit N] [--scope VAL] [--login USER] [--json] [--plain]
+      repobar activity [<owner/name>|<login>] [--limit N] [--scope VAL] [--login USER] [--include-repos] [--json] [--plain]
+      repobar local [--root PATH] [--depth N] [--sync] [--limit N] [--json] [--plain]
+      repobar local sync <path|owner/name> [--json] [--plain]
+      repobar local rebase <path|owner/name> [--json] [--plain]
+      repobar local reset <path|owner/name> [--yes] [--json] [--plain]
+      repobar local branches <path|owner/name> [--json] [--plain]
+      repobar worktrees <path|owner/name> [--json] [--plain]
+      repobar open finder <path|owner/name>
+      repobar open terminal <path|owner/name>
+      repobar checkout <owner/name> [--root PATH] [--destination PATH] [--open] [--json] [--plain]
+      repobar refresh [--json] [--plain]
+      repobar contributions [--login USER] [--json] [--plain]
+      repobar changelog [path] [--release TAG] [--json] [--plain]
+      repobar markdown <path> [--width N] [--no-wrap] [--plain] [--no-color]
+      repobar pin <owner/name> [--json] [--plain]
+      repobar unpin <owner/name> [--json] [--plain]
+      repobar hide <owner/name> [--json] [--plain]
+      repobar show <owner/name> [--json] [--plain]
+      repobar archives list [--json] [--plain]
+      repobar archives status [name] [--json] [--plain]
+      repobar archives validate [name] [--json] [--plain]
+      repobar archives update <name> [--json] [--plain]
+      repobar archives add <name> [--repo PATH] [--remote URL] [--branch BRANCH] [--db PATH] [--json] [--plain]
+      repobar archives remove <name> [--json] [--plain]
+      repobar archives enable <name> [--json] [--plain]
+      repobar archives disable <name> [--json] [--plain]
+      repobar rate-limits [--limit N] [--json] [--plain]
+      repobar reference-translate <text> [--json] [--plain]
+      repobar cache status [--limit N] [--json] [--plain]
+      repobar cache clear [--json] [--plain]
+      repobar settings show [--json] [--plain]
+      repobar settings set <key> <value> [--json] [--plain]
+      repobar login [--host URL] [--client-id ID] [--client-secret SECRET] [--loopback-port PORT]
+      repobar logout
+      repobar import-gh-token [--host URL]
+      repobar status [--json]
+
+    Options:
+      --limit N    Max repositories to fetch (default: all accessible)
+      --age DAYS   Only show repos with activity in the last N days (default: 365)
+      --release    Include latest release tag and date
+      --event      Show activity event column (hidden by default)
+      --forks      Include forked repositories (hidden by default)
+      --archived   Include archived repositories (hidden by default)
+      --scope      Scope repositories (values: all, pinned, hidden)
+      --filter     Filter repositories (values: all, work, issues, prs)
+      --pinned-only  Only list pinned repositories from settings (alias for --scope pinned)
+      --only-with  Only show repos that have issues and/or PRs (values: work, issues, prs)
+      --owner      Only show repositories owned by the given login (repeatable, comma-separated)
+      --mine       Only show repositories owned by the authenticated user
+      --json       Output JSON instead of formatted table
+      --plain      Plain table output (no links, no colors, no URLs)
+      --sort KEY   Sort by activity, issues, prs, stars, repo, or event
+      --no-color   Disable color output
+      -h, --help   Show help
+    """
+}
+
 func printHelp(_ target: HelpTarget) {
     let text = switch target {
     case .root:
-        """
-        repobar - list repositories by activity, issues, PRs, stars
-
-        Usage:
-          repobar [repos] [--limit N] [--age DAYS] [--release] [--event] [--forks] [--archived] [--scope VAL] [--filter VAL]
-                  [--pinned-only] [--only-with VAL] [--owner LOGIN] [--mine] [--json] [--plain] [--sort KEY]
-          repobar repo <owner/name> [--traffic] [--heatmap] [--release] [--json] [--plain]
-          repobar issues <owner/name> [--limit N] [--json] [--plain]
-          repobar pulls <owner/name> [--limit N] [--json] [--plain]
-          repobar releases <owner/name> [--limit N] [--json] [--plain]
-          repobar ci <owner/name> [--limit N] [--json] [--plain]
-          repobar discussions <owner/name> [--limit N] [--json] [--plain]
-          repobar tags <owner/name> [--limit N] [--json] [--plain]
-          repobar branches <owner/name> [--limit N] [--json] [--plain]
-          repobar contributors <owner/name> [--limit N] [--json] [--plain]
-          repobar commits [<owner/name>|<login>] [--limit N] [--scope VAL] [--login USER] [--json] [--plain]
-          repobar activity [<owner/name>|<login>] [--limit N] [--scope VAL] [--login USER] [--include-repos] [--json] [--plain]
-          repobar local [--root PATH] [--depth N] [--sync] [--limit N] [--json] [--plain]
-          repobar local sync <path|owner/name> [--json] [--plain]
-          repobar local rebase <path|owner/name> [--json] [--plain]
-          repobar local reset <path|owner/name> [--yes] [--json] [--plain]
-          repobar local branches <path|owner/name> [--json] [--plain]
-          repobar worktrees <path|owner/name> [--json] [--plain]
-          repobar open finder <path|owner/name>
-          repobar open terminal <path|owner/name>
-          repobar checkout <owner/name> [--root PATH] [--destination PATH] [--open] [--json] [--plain]
-          repobar refresh [--json] [--plain]
-          repobar contributions [--login USER] [--json] [--plain]
-          repobar changelog [path] [--release TAG] [--json] [--plain]
-          repobar markdown <path> [--width N] [--no-wrap] [--plain] [--no-color]
-          repobar pin <owner/name> [--json] [--plain]
-          repobar unpin <owner/name> [--json] [--plain]
-          repobar hide <owner/name> [--json] [--plain]
-          repobar show <owner/name> [--json] [--plain]
-          repobar archives list [--json] [--plain]
-          repobar archives status [name] [--json] [--plain]
-          repobar archives validate [name] [--json] [--plain]
-          repobar archives update <name> [--json] [--plain]
-          repobar archives add <name> [--repo PATH] [--remote URL] [--branch BRANCH] [--db PATH] [--json] [--plain]
-          repobar archives remove <name> [--json] [--plain]
-          repobar archives enable <name> [--json] [--plain]
-          repobar archives disable <name> [--json] [--plain]
-          repobar rate-limits [--limit N] [--json] [--plain]
-          repobar reference-translate <text> [--json] [--plain]
-          repobar cache status [--limit N] [--json] [--plain]
-          repobar cache clear [--json] [--plain]
-          repobar settings show [--json] [--plain]
-          repobar settings set <key> <value> [--json] [--plain]
-          repobar login [--host URL] [--client-id ID] [--client-secret SECRET] [--loopback-port PORT]
-          repobar logout
-          repobar import-gh-token [--host URL]
-          repobar status [--json]
-
-        Options:
-          --limit N    Max repositories to fetch (default: all accessible)
-          --age DAYS   Only show repos with activity in the last N days (default: 365)
-          --release    Include latest release tag and date
-          --event      Show activity event column (hidden by default)
-          --forks      Include forked repositories (hidden by default)
-          --archived   Include archived repositories (hidden by default)
-          --scope      Scope repositories (values: all, pinned, hidden)
-          --filter     Filter repositories (values: all, work, issues, prs)
-          --pinned-only  Only list pinned repositories from settings (alias for --scope pinned)
-          --only-with  Only show repos that have issues and/or PRs (values: work, issues, prs)
-          --owner      Only show repositories owned by the given login (repeatable, comma-separated)
-          --mine       Only show repositories owned by the authenticated user
-          --json       Output JSON instead of formatted table
-          --plain      Plain table output (no links, no colors, no URLs)
-          --sort KEY   Sort by activity, issues, prs, stars, repo, or event
-          --no-color   Disable color output
-          -h, --help   Show help
-        """
+        rootHelpText()
     case .repos:
         """
         repobar repos - list repositories
