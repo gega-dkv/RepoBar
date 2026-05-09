@@ -213,7 +213,13 @@ final class AppState {
             in: text,
             localRepoIndex: self.session.localRepoIndex
         )
-        return GitHubReferenceLocalContext.queries(queries, applyingRepositoryFullName: repositoryFullName)
+        guard let repositoryFullName else { return queries }
+
+        return GitHubReferenceTranslator.queries(
+            from: text,
+            minimumBareDigits: AppLimits.GitHubReferenceMonitor.minimumBareDigits,
+            repositoryContextOverride: repositoryFullName
+        )
     }
 
     private nonisolated static func resolveGitHubReferenceMatch(

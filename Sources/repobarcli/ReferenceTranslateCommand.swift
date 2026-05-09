@@ -28,13 +28,12 @@ struct ReferenceTranslateCommand: CommanderRunnableCommand {
             throw ValidationError("Missing reference text")
         }
 
-        let queries = GitHubReferenceTranslator.queries(from: text)
         let repositoryFullName = await GitHubReferenceLocalContext.repositoryFullName(in: text)
-        let scopedQueries = GitHubReferenceLocalContext.queries(
-            queries,
-            applyingRepositoryFullName: repositoryFullName
+        let queries = GitHubReferenceTranslator.queries(
+            from: text,
+            repositoryContextOverride: repositoryFullName
         )
-        let result = ReferenceTranslationOutput(input: text, queries: scopedQueries)
+        let result = ReferenceTranslationOutput(input: text, queries: queries)
         if self.output.jsonOutput {
             let encoder = JSONEncoder()
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]

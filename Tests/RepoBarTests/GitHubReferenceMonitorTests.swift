@@ -187,4 +187,33 @@ struct GitHubReferenceMonitorTests {
         ]
         #expect(queries == expected)
     }
+
+    @Test
+    func `local repository context beats prose slash words`() {
+        let text = """
+        - #2124 header avatar controls
+        - #2128 content container constraints
+        - #908 upload page validation errors hidden. Likely fix: surface validationError inline/toast on publish/upload forms.
+        - #937 clawhub update --all false local changes.
+        - #951 onlycrabs.ai README mismatch.
+
+        Skipped: #2126 too large, #1110 conflicts + API/CLI feature, #1712 stats/accounting touches telemetry semantics.
+
+        gpt-5.5 high fast · ~/Projects/clawhub · Context 67% left
+        """
+        let queries = GitHubReferenceTranslator.queries(
+            from: text,
+            repositoryContextOverride: "openclaw/clawhub"
+        )
+        #expect(queries.map(\.displayText) == [
+            "openclaw/clawhub#2124",
+            "openclaw/clawhub#2128",
+            "openclaw/clawhub#908",
+            "openclaw/clawhub#937",
+            "openclaw/clawhub#951",
+            "openclaw/clawhub#2126",
+            "openclaw/clawhub#1110",
+            "openclaw/clawhub#1712"
+        ])
+    }
 }

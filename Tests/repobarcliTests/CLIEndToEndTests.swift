@@ -166,6 +166,36 @@ struct CLIEndToEndTests {
             "openclaw/crabbox#60"
         ])
     }
+
+    @Test
+    @MainActor
+    func `reference translate command prefers local repo over prose slash words`() async throws {
+        let tempDir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: tempDir) }
+
+        try runProcess("git", ["init"], in: tempDir)
+        try runProcess("git", ["remote", "add", "origin", "https://github.com/openclaw/clawhub.git"], in: tempDir)
+
+        let copiedText = """
+        Findings:
+        - #2124 header avatar controls
+        - #908 upload page validation errors hidden. Likely fix: surface validationError inline/toast on publish/upload forms.
+
+        gpt-5.5 high fast · \(tempDir.path) · Context 67% left
+        """
+        let output = try await runCLI([
+            "reference-translate",
+            copiedText,
+            "--json"
+        ])
+        let data = try #require(output.data(using: .utf8))
+        let decoded = try JSONDecoder().decode(ReferenceTranslationOutput.self, from: data)
+        #expect(decoded.matches.map(\.displayText) == [
+            "openclaw/clawhub#2124",
+            "openclaw/clawhub#908"
+        ])
+    }
 }
 
 private func fixtureURL(_ name: String) throws -> URL {

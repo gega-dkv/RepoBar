@@ -13,7 +13,8 @@ public enum GitHubReferenceTranslator {
 
     public static func queries(
         from rawText: String,
-        minimumBareDigits: Int = Self.defaultMinimumBareDigits
+        minimumBareDigits: Int = Self.defaultMinimumBareDigits,
+        repositoryContextOverride: String? = nil
     ) -> [GitHubReferenceQuery] {
         let text = rawText.trimmingCharacters(in: .whitespacesAndNewlines)
         if let query = self.urlQuery(from: text) {
@@ -26,13 +27,13 @@ public enum GitHubReferenceTranslator {
             allowBareIssueNumber: true,
             allowNumericCommitHash: true
         ) {
-            return [query]
+            return [self.applyingRepositoryContext(repositoryContextOverride, to: query)]
         }
 
         guard text.count <= Self.maxScannedTextLength else { return [] }
 
         let tokens = self.referenceTokens(in: text)
-        let repositoryContext = self.repositoryContext(in: tokens)
+        let repositoryContext = repositoryContextOverride ?? self.repositoryContext(in: tokens)
         var queries: [GitHubReferenceQuery] = []
         var seen: Set<GitHubReferenceQuery> = []
         func append(_ query: GitHubReferenceQuery) {
