@@ -2,6 +2,8 @@
 
 ## 0.5.2 - Unreleased
 
+- Recognize chained copied references like `owner/repo#70/#71` as multiple GitHub references.
+- Start inline GitHub reference browser previews below the repository header so pull request content is visible sooner.
 - Improve GitHub reference parsing for grouped `owner/repo: #1, #2` issue lists.
 - Rename the GitHub rate-limit menu to GitHub API Status and show the current blocker, shared-token note, endpoint cooldowns, live bucket quotas, and sample age as separate lines.
 - Bring the iOS app closer to macOS parity with repository search/filter/sort/owner controls, GitHub rate-limit diagnostics, a manual GitHub reference resolver, share-sheet handoff, and inline reference previews.

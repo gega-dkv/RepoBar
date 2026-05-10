@@ -46,6 +46,9 @@ public enum GitHubReferenceTranslator {
             if let query = self.urlQuery(from: token) {
                 append(query)
             }
+            for query in self.chainedRepositoryIssueQueries(from: token) {
+                append(query)
+            }
         }
 
         let groupedQueries = self.groupedRepositoryIssueQueries(in: text)
@@ -189,6 +192,32 @@ public enum GitHubReferenceTranslator {
         else { return nil }
 
         return .repositoryIssueNumber(repositoryFullName: parts[0], number: number)
+    }
+
+    private static func chainedRepositoryIssueQueries(from token: String) -> [GitHubReferenceQuery] {
+        let parts = token.split(separator: "#", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        guard parts.count == 2,
+              self.isRepositoryFullName(parts[0]),
+              parts[1].contains("/")
+        else { return [] }
+
+        let rawNumbers = parts[1]
+            .split(separator: "/", omittingEmptySubsequences: false)
+            .map(String.init)
+        guard rawNumbers.isEmpty == false else { return [] }
+
+        var numbers: [Int] = []
+        for rawNumber in rawNumbers {
+            let normalized = rawNumber.hasPrefix("#") ? String(rawNumber.dropFirst()) : rawNumber
+            guard normalized.isEmpty == false,
+                  normalized.allSatisfy(\.isNumber),
+                  let number = Int(normalized)
+            else { return [] }
+
+            numbers.append(number)
+        }
+
+        return numbers.map { .repositoryIssueNumber(repositoryFullName: parts[0], number: $0) }
     }
 
     private static func isRepositoryFullName(_ value: String) -> Bool {

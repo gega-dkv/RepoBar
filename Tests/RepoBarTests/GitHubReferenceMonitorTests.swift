@@ -48,6 +48,22 @@ struct GitHubReferenceMonitorTests {
     }
 
     @Test
+    func `chained owner repo issue shorthand becomes multiple repository scoped issue queries`() {
+        #expect(
+            GitHubReferenceTranslator.queries(from: "openclaw/crabbox#70/#71") == [
+                .repositoryIssueNumber(repositoryFullName: "openclaw/crabbox", number: 70),
+                .repositoryIssueNumber(repositoryFullName: "openclaw/crabbox", number: 71)
+            ]
+        )
+        #expect(
+            GitHubReferenceTranslator.queries(from: "make - openclaw/crabbox#70/#71: work") == [
+                .repositoryIssueNumber(repositoryFullName: "openclaw/crabbox", number: 70),
+                .repositoryIssueNumber(repositoryFullName: "openclaw/crabbox", number: 71)
+            ]
+        )
+    }
+
+    @Test
     func `github issue and pr urls become repository scoped issue queries`() {
         #expect(
             GitHubReferenceTranslator.query(from: "https://github.com/openclaw/openclaw/issues/73655") ==

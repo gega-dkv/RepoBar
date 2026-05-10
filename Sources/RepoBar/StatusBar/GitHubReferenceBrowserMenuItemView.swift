@@ -8,6 +8,7 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
         static let width: CGFloat = 740
         static let minimumHeight: CGFloat = 680
         static let maximumHeight: CGFloat = 980
+        static let initialScrollOffset = 360
         static let visibleScreenHeightMultiplier: CGFloat = 0.62
     }
 
@@ -56,6 +57,7 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
 
         webView.translatesAutoresizingMaskIntoConstraints = false
         webView.allowsBackForwardNavigationGestures = false
+        webView.navigationDelegate = self
         self.addSubview(webView)
 
         NSLayoutConstraint.activate([
@@ -83,5 +85,24 @@ final class GitHubReferenceBrowserMenuItemView: NSView {
         let desiredHeight = visibleHeight * Metrics.visibleScreenHeightMultiplier
         let height = min(max(desiredHeight, Metrics.minimumHeight), Metrics.maximumHeight)
         return NSSize(width: Metrics.width, height: height.rounded(.down))
+    }
+
+    private func applyInitialScrollOffset() {
+        guard let webView = self.webView else { return }
+
+        let script = "if (window.scrollY < 80) window.scrollTo(0, \(Metrics.initialScrollOffset));"
+        webView.evaluateJavaScript(script)
+    }
+}
+
+extension GitHubReferenceBrowserMenuItemView: WKNavigationDelegate {
+    nonisolated func webView(_ webView: WKWebView, didFinish _: WKNavigation) {
+        Task { @MainActor [weak self] in
+            guard let self, self.webView === webView else { return }
+
+            self.applyInitialScrollOffset()
+            try? await Task.sleep(for: .milliseconds(350))
+            self.applyInitialScrollOffset()
+        }
     }
 }
