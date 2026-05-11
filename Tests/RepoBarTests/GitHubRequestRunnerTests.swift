@@ -46,6 +46,31 @@ struct GitHubRequestRunnerTests {
     }
 
     @Test
+    func `bad status message includes GitHub response detail`() {
+        let data = Data("""
+        {
+          "message": "Validation Failed",
+          "errors": [
+            { "resource": "Search", "field": "q", "code": "invalid", "message": "Search query is too broad." }
+          ]
+        }
+        """.utf8)
+
+        let message = GitHubRequestRunner.statusMessage(for: 422, data: data)
+
+        #expect(message == "GitHub returned 422: Validation Failed: Search query is too broad.")
+    }
+
+    @Test
+    func `bad status message keeps fallback for non github body`() {
+        let data = Data("nope".utf8)
+
+        let message = GitHubRequestRunner.statusMessage(for: 422, data: data)
+
+        #expect(message == "GitHub returned 422: client error.")
+    }
+
+    @Test
     func `diagnostics expose endpoint cooldowns`() async throws {
         let url = try #require(URL(string: "https://api.github.com/repos/owner/repo/stats/commit_activity"))
         let backoff = BackoffTracker()

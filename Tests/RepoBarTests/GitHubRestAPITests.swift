@@ -59,4 +59,62 @@ struct GitHubRestAPITests {
         #expect(page.issues.map(\.number) == [11])
         #expect(page.issues.first?.title == "Actual issue")
     }
+
+    @Test
+    func `issue reference list item decodes repository object`() throws {
+        let data = Data("""
+        [
+          {
+            "number": 42,
+            "title": "Subscribed fix",
+            "body": "Useful details",
+            "html_url": "https://github.com/acme/widget/pull/42",
+            "repository": {"full_name": "acme/widget"},
+            "state": "open",
+            "created_at": "2026-05-03T16:00:00Z",
+            "updated_at": "2026-05-03T16:11:00Z",
+            "user": {"login": "peter"},
+            "pull_request": {"url": "https://api.github.com/repos/acme/widget/pulls/42"}
+          }
+        ]
+        """.utf8)
+
+        let item = try #require(GitHubDecoding.decode([IssueReferenceSearchItem].self, from: data).first)
+        let match = try #require(item.match())
+
+        #expect(match.repositoryFullName == "acme/widget")
+        #expect(match.query.displayText == "acme/widget#42")
+        #expect(match.kind == .pullRequest)
+        #expect(match.state == .open)
+        #expect(match.authorLogin == "peter")
+    }
+
+    @Test
+    func `issue reference search preserves merged pull request state`() throws {
+        let data = Data("""
+        [
+          {
+            "number": 43,
+            "title": "Merged fix",
+            "body": null,
+            "html_url": "https://github.com/acme/widget/pull/43",
+            "repository": {"full_name": "acme/widget"},
+            "state": "closed",
+            "created_at": "2026-05-03T16:00:00Z",
+            "updated_at": "2026-05-03T16:11:00Z",
+            "user": {"login": "peter"},
+            "pull_request": {
+              "url": "https://api.github.com/repos/acme/widget/pulls/43",
+              "merged_at": "2026-05-03T16:10:00Z"
+            }
+          }
+        ]
+        """.utf8)
+
+        let item = try #require(GitHubDecoding.decode([IssueReferenceSearchItem].self, from: data).first)
+        let match = try #require(item.match())
+
+        #expect(match.kind == .pullRequest)
+        #expect(match.state == .merged)
+    }
 }

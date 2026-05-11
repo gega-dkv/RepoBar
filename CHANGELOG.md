@@ -2,6 +2,15 @@
 
 ## 0.5.3 - Unreleased
 
+- Add a full Issue Navigator window for clipboard-aware issue/PR lookup, scoped repository search, keyboard selection, copy/open actions, and inline GitHub previews.
+- Show RepoBar in the Dock while the Issue Navigator window is open, then return to menu-bar-only mode when it closes.
+- Refine Issue Navigator sidebar chrome with a translucent material sidebar and subtler native split-view divider.
+- Keep Issue Navigator all-repository searches usable when individual repository searches fail, and show GitHub response details instead of a generic client error.
+- Cap Issue Navigator all-repository search fan-out, respect the selected issue/PR filter for pasted references, and hide the navigator while signed out.
+- Sort Issue Navigator rows by latest update time, choose recent repositories using the active issue/PR filter, and surface scoped repository load failures.
+- Prevent canceled Issue Navigator searches from overwriting newer results and preserve merged pull request state in text search results.
+- Keep Issue Navigator typing from opening the selected result, avoid public GitHub fallback before repository inventory loads, and make quick close/reopen cleanup safe.
+
 ## 0.5.2 - 2026-05-11
 
 - Recognize copied repository-name issue references like `discrawl#64` and resolve them against a unique local or accessible GitHub repository.

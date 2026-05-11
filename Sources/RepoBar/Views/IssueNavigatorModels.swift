@@ -1,0 +1,50 @@
+import Foundation
+import RepoBarCore
+
+enum IssueNavigatorKindFilter: String, CaseIterable, Identifiable {
+    case all
+    case issues
+    case pullRequests
+
+    var id: String {
+        self.rawValue
+    }
+
+    var title: String {
+        switch self {
+        case .all: "Issues + PRs"
+        case .issues: "Issues"
+        case .pullRequests: "Pull Requests"
+        }
+    }
+
+    var includeIssues: Bool {
+        self != .pullRequests
+    }
+
+    var includePullRequests: Bool {
+        self != .issues
+    }
+
+    func matches(_ kind: GitHubReferenceKind) -> Bool {
+        switch self {
+        case .all:
+            true
+        case .issues:
+            kind == .issue
+        case .pullRequests:
+            kind == .pullRequest
+        }
+    }
+}
+
+struct IssueNavigatorScope: Identifiable, Hashable {
+    let fullName: String?
+    let title: String
+
+    var id: String {
+        self.fullName ?? "__all"
+    }
+
+    static let all = IssueNavigatorScope(fullName: nil, title: "All Repositories")
+}

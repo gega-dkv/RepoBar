@@ -52,6 +52,7 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
     private var pendingMenuReopen = false
     private var gitHubReferenceSyncTask: Task<Void, Never>?
     private var gitHubReferenceMenuMatches: [GitHubReferenceMatch] = []
+    private lazy var issueNavigatorWindowController = IssueNavigatorWindowController(appState: self.appState)
     var webURLBuilder: RepoWebURLBuilder {
         RepoWebURLBuilder(host: self.appState.session.settings.githubHost)
     }
@@ -158,6 +159,15 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
 
     @objc func openPreferences() {
         SettingsOpener.shared.open()
+    }
+
+    @objc func openIssueNavigator() {
+        guard self.appState.session.account.isLoggedIn else {
+            self.signIn()
+            return
+        }
+
+        self.issueNavigatorWindowController.show()
     }
 
     @objc func openAbout() {

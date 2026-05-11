@@ -17,6 +17,7 @@ public enum MainMenuItemID: String, CaseIterable, Codable, Hashable, Sendable {
     case rateLimits
     case filters
     case repoList
+    case issueNavigator
     case preferences
     case about
     case restartToUpdate
@@ -31,6 +32,7 @@ public enum MainMenuItemID: String, CaseIterable, Codable, Hashable, Sendable {
         case .rateLimits: "GitHub API Status"
         case .filters: "Menu Filters"
         case .repoList: "Repository Cards"
+        case .issueNavigator: "Issue Navigator"
         case .preferences: "Preferences"
         case .about: "About RepoBar"
         case .restartToUpdate: "Restart to Update"
@@ -47,6 +49,7 @@ public enum MainMenuItemID: String, CaseIterable, Codable, Hashable, Sendable {
         case .rateLimits: "Current blocker and rate-limit diagnostics"
         case .filters: "Pinned/hidden filter chips"
         case .repoList: "Repo cards + inline heatmap"
+        case .issueNavigator: "Fast issue and pull request search"
         case .preferences: nil
         case .about: nil
         case .restartToUpdate: "Shown when an update is ready"
@@ -61,7 +64,7 @@ public enum MainMenuItemID: String, CaseIterable, Codable, Hashable, Sendable {
         case .statusBanner, .rateLimits: .status
         case .filters: .filters
         case .repoList: .repos
-        case .preferences, .about, .restartToUpdate, .quit: .footer
+        case .issueNavigator, .preferences, .about, .restartToUpdate, .quit: .footer
         }
     }
 }
@@ -211,6 +214,7 @@ public struct MenuCustomization: Equatable, Codable, Hashable, Sendable {
         .rateLimits,
         .filters,
         .repoList,
+        .issueNavigator,
         .preferences,
         .about,
         .restartToUpdate,

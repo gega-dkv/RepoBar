@@ -37,6 +37,18 @@ enum AppLimits {
         static let liveLookupLimit = 80
     }
 
+    enum IssueNavigator {
+        static let searchLimit = 50
+        static let maxRepositorySearchFanout = 12
+        static let perRepositorySearchLimit = 12
+        static let recentRepositoryLimit = 8
+        static let perRepositoryRecentLimit = 4
+        static let repositorySearchConcurrencyLimit = 4
+        static let minimumSearchCharacters = 2
+        static let webPreviewPreloadLimit = 8
+        static let webPreviewCacheLimit = 12
+    }
+
     enum RepoCommits {
         static let previewLimit: Int = 5
         static let moreLimit: Int = 25

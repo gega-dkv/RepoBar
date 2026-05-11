@@ -44,6 +44,7 @@ struct UserSettingsCoverageTests {
             .statusBanner,
             .filters,
             .repoList,
+            .issueNavigator,
             .preferences,
             .about,
             .restartToUpdate,

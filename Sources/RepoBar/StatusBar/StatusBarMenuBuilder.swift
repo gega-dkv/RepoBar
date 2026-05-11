@@ -210,6 +210,15 @@ final class StatusBarMenuBuilder {
             self.repoMenuItemCache = self.repoMenuItemCache.filter { usedRepoKeys.contains($0.key) }
             self.repoSubmenuCache = self.repoSubmenuCache.filter { usedRepoKeys.contains($0.key) }
             return items
+        case .issueNavigator:
+            guard case .loggedIn = session.account else { return [] }
+
+            return [self.actionItem(
+                title: "Issue Navigator…",
+                action: #selector(self.target.openIssueNavigator),
+                keyEquivalent: "f",
+                systemImage: "rectangle.and.text.magnifyingglass"
+            )]
         case .preferences:
             return [self.actionItem(title: "Preferences…", action: #selector(self.target.openPreferences), keyEquivalent: ",")]
         case .about:

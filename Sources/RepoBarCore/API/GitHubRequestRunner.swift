@@ -101,7 +101,7 @@ actor GitHubRequestRunner {
             if let remaining, remaining > 0 {
                 self.logger.warning("HTTP GET \(url.pathWithQueryForLogging) status=\(status) remaining=\(remaining)")
                 await self.diag.message("403 with remaining=\(remaining) on \(url.lastPathComponent); treating as bad status")
-                throw GitHubAPIError.badStatus(code: status, message: HTTPURLResponse.localizedString(forStatusCode: status))
+                throw GitHubAPIError.badStatus(code: status, message: Self.statusMessage(for: status, data: data))
             }
 
             let resetDate = self.rateLimitDate(from: response) ?? Date().addingTimeInterval(60)
@@ -120,7 +120,7 @@ actor GitHubRequestRunner {
             await self.diag.message("Unexpected status \(status) for \(url.lastPathComponent)")
             throw GitHubAPIError.badStatus(
                 code: status,
-                message: HTTPURLResponse.localizedString(forStatusCode: status)
+                message: Self.statusMessage(for: status, data: data)
             )
         }
 
@@ -155,6 +155,28 @@ actor GitHubRequestRunner {
 
     static func cooldownMessage(for url: URL, until: Date, now: Date = Date()) -> String {
         "GitHub endpoint cooldown (\(self.endpointDescription(for: url))); retry \(RelativeFormatter.string(from: until, relativeTo: now))"
+    }
+
+    static func statusMessage(for status: Int, data: Data) -> String {
+        let fallback = HTTPURLResponse.localizedString(forStatusCode: status)
+        guard let error = try? GitHubDecoding.decode(GitHubErrorResponse.self, from: data) else {
+            return "GitHub returned \(status): \(fallback)."
+        }
+
+        var parts = [error.message]
+        for detail in error.errors ?? [] {
+            guard let message = detail.message?.trimmingCharacters(in: .whitespacesAndNewlines), message.isEmpty == false else {
+                continue
+            }
+
+            if parts.contains(where: { $0.caseInsensitiveCompare(message) == .orderedSame }) == false {
+                parts.append(message)
+            }
+        }
+
+        let detail = parts.joined(separator: ": ")
+        let suffix = detail.hasSuffix(".") || detail.hasSuffix("!") || detail.hasSuffix("?") ? "" : "."
+        return "GitHub returned \(status): \(detail)\(suffix)"
     }
 
     func clear() async {
@@ -306,6 +328,15 @@ actor GitHubRequestRunner {
 
         return "\(components[repoIndex + 1])/\(components[repoIndex + 2])"
     }
+}
+
+private struct GitHubErrorResponse: Decodable {
+    let message: String
+    let errors: [GitHubErrorDetail]?
+}
+
+private struct GitHubErrorDetail: Decodable {
+    let message: String?
 }
 
 private extension URL {
