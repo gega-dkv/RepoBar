@@ -10,6 +10,7 @@
 - Sort Issue Navigator rows by latest update time, choose recent repositories using the active issue/PR filter, and surface scoped repository load failures.
 - Prevent canceled Issue Navigator searches from overwriting newer results and preserve merged pull request state in text search results.
 - Keep Issue Navigator typing from opening the selected result, avoid public GitHub fallback before repository inventory loads, and make quick close/reopen cleanup safe.
+- Fix RepoBar website mobile install cards so long commands and copy controls stay inline without horizontal overflow.
 
 ## 0.5.2 - 2026-05-11
 

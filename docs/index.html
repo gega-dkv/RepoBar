@@ -85,6 +85,18 @@
         box-sizing: border-box;
       }
 
+      img,
+      svg,
+      video {
+        max-width: 100%;
+      }
+
+      code,
+      pre,
+      a {
+        overflow-wrap: anywhere;
+      }
+
       html {
         scroll-behavior: smooth;
       }
@@ -262,8 +274,48 @@
       }
 
       @media (max-width: 760px) {
+        .frame {
+          padding: 18px 14px 56px;
+        }
+
+        header {
+          top: 10px;
+          gap: 10px;
+          padding: 10px 12px;
+          max-width: 100%;
+        }
+
+        .logo {
+          min-width: 0;
+          font-size: 18px;
+        }
+
+        .logo-badge {
+          width: 32px;
+          height: 32px;
+          border-radius: 10px;
+          flex: 0 0 auto;
+        }
+
+        nav.top-nav {
+          min-width: 0;
+          flex: 0 0 auto;
+        }
+
         nav.top-nav a:not(.nav-cta) {
           display: none;
+        }
+
+        .nav-cta {
+          margin-left: 2px;
+          padding-inline: 14px;
+        }
+
+        .theme-toggle {
+          width: 34px;
+          height: 34px;
+          margin: 0 2px;
+          flex: 0 0 auto;
         }
       }
 
@@ -274,6 +326,7 @@
         grid-template-columns: minmax(300px, 1.05fr) minmax(300px, 1fr);
         gap: 56px;
         align-items: center;
+        min-width: 0;
       }
 
       .hero h1 {
@@ -497,6 +550,7 @@
         background: var(--panel);
         overflow: hidden;
         box-shadow: var(--shadow-md);
+        min-width: 0;
       }
 
       .datasheet .cell {
@@ -570,6 +624,7 @@
         gap: 56px;
         align-items: start;
         margin-top: 36px;
+        min-width: 0;
       }
 
       @media (max-width: 880px) {
@@ -640,6 +695,7 @@
         gap: 36px;
         align-items: start;
         position: relative;
+        min-width: 0;
       }
 
       @media (max-width: 880px) {
@@ -819,6 +875,7 @@
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 18px;
+        min-width: 0;
       }
 
       @media (max-width: 880px) {
@@ -836,6 +893,8 @@
         display: flex;
         flex-direction: column;
         gap: 14px;
+        min-width: 0;
+        overflow: hidden;
       }
 
       .install-card h3 {
@@ -862,6 +921,7 @@
 
       .install-command-row {
         position: relative;
+        min-width: 0;
       }
 
       .install-command {
@@ -875,6 +935,9 @@
         border: 1px solid #1f1f1f;
         overflow-x: auto;
         font-family: "IBM Plex Mono", monospace;
+        max-width: 100%;
+        min-width: 0;
+        white-space: pre;
       }
 
       .copy-button {
@@ -1072,6 +1135,94 @@
       }
 
       @media (max-width: 760px) {
+        section {
+          margin-top: 72px;
+        }
+
+        .section-title {
+          font-size: clamp(30px, 10vw, 42px);
+        }
+
+        .section-lead,
+        .hero-lead {
+          font-size: 14px;
+        }
+
+        .hero {
+          gap: 36px;
+        }
+
+        .hero-panel {
+          transform: none;
+          padding: 10px;
+        }
+
+        .hero-panel::before {
+          display: none;
+        }
+
+        .hero-tag {
+          position: static;
+          display: inline-flex;
+          margin-top: 10px;
+        }
+
+        .hero-stamp {
+          display: none;
+        }
+
+        .install-card {
+          padding: 20px 18px;
+        }
+
+        .install-command {
+          padding-right: 58px;
+          min-height: 58px;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }
+
+        .copy-button {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          bottom: 8px;
+          width: 38px;
+          height: auto;
+          transform: none;
+        }
+
+        .copy-button:hover {
+          transform: scale(1.03);
+        }
+
+        .field-list li {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
+
+        .sync-panel {
+          padding: 24px 18px;
+        }
+
+        .sync-flow {
+          padding: 16px;
+        }
+
+        .sync-flow .step {
+          grid-template-columns: 1fr;
+          gap: 6px;
+        }
+
+        .terminal-body {
+          padding: 18px 16px;
+          font-size: 12px;
+        }
+
+        .faq summary {
+          font-size: 20px;
+        }
+
         footer {
           grid-template-columns: 1fr;
         }
