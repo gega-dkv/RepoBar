@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.5.3 - Unreleased
+
 ## 0.5.2 - 2026-05-11
 
 - Recognize copied repository-name issue references like `discrawl#64` and resolve them against a unique local or accessible GitHub repository.
