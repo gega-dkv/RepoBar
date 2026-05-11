@@ -3,6 +3,17 @@
     <channel>
         <title>RepoBar</title>
         <item>
+            <title>0.5.2</title>
+            <pubDate>Mon, 11 May 2026 03:18:47 +0100</pubDate>
+            <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <description><![CDATA[<ul><li>Recognize copied repository-name issue references like `discrawl#64` and resolve them against a unique local or accessible GitHub repository.</li><li>Resolve bare copied commit hashes like `0213e9d` against local repositories before falling back to broad GitHub lookup.</li><li>Recognize copied GitHub Actions run URLs like `owner/repo/actions/runs/123` as GitHub references.</li><li>Move GitHub reference preview actions into an inline browser header with Back, Copy, and Open controls while keeping the preview&#x27;s persistent GitHub web session.</li><li>Explain in GitHub API Status that rate limits are shared by the GitHub user or actor across PATs, OAuth/GitHub App user tokens, and `gh` CLI requests.</li><li>Recognize chained and ranged copied references like `owner/repo#70/#71` and `owner/repo#66-#69` as multiple GitHub references.</li><li>Start inline GitHub reference browser previews below the repository header so pull request content is visible sooner.</li><li>Improve GitHub reference parsing for grouped `owner/repo: #1, #2` issue lists.</li><li>Rename the GitHub rate-limit menu to GitHub API Status and show the current blocker, shared-token note, endpoint cooldowns, live bucket quotas, and sample age as separate lines.</li><li>Bring the iOS app closer to macOS parity with repository search/filter/sort/owner controls, GitHub rate-limit diagnostics, a manual GitHub reference resolver, share-sheet handoff, and inline reference previews.</li></ul>
+]]></description>
+            <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.5.2/RepoBar-0.5.2.zip" length="23261039" type="application/octet-stream" sparkle:edSignature="h7I7EUd2Sk0pku96isqJ2nD+BCJuLMZVcZ1pe0MLFVeZe/EFGT029laOgv1ZuGZ/FwWjTWCWYczAe+f3Dw2RBA=="/>
+        </item>
+        <item>
             <title>0.5.1</title>
             <pubDate>Sun, 10 May 2026 00:42:02 +0100</pubDate>
             <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
@@ -23,17 +34,6 @@
             <description><![CDATA[<ul><li>Add an optional Advanced setting for a clipboard-only GitHub reference monitor that surfaces issues, pull requests, and commit hashes from accessible repositories as a separate menu bar item, with cache-first lookup and live GitHub fallback.</li><li>Show per-endpoint GitHub cooldowns in the Rate Limits sidebar and diagnostics so commit-activity backoff is distinct from healthy REST/GraphQL quota buckets.</li><li>Stop showing a generic “not found” warning when a repository has no visible releases endpoint.</li><li>Hide the repository filter bar when the only available scope would be Local.</li><li>Recognize copied GitHub URLs, owner/repo#number shorthands, and short or long commit hashes, including hashes embedded in pull request changes URLs and numeric-looking short hashes.</li><li>Add a CLI reference translator so GitHub reference parsing can be tested end to end.</li><li>Move GitHub reference watcher pasteboard polling off the main thread so the menu bar stays responsive.</li><li>Restore AppKit-native status item menus, keep the status buttons enabled, and remove the watcher item when no match is visible.</li><li>Keep GitHub reference watching clipboard-only so RepoBar never needs Accessibility permission or global keyboard monitoring.</li><li>Show GitHub reference matches in a preloaded inline browser preview, with iconed Open and Copy commands above a taller browser area.</li><li>Distinguish open, closed, and merged GitHub references in the menu bar title and icon.</li><li>Use fresh AppKit autosave names for RepoBar status items and explicitly tear them down on quit to avoid stale menu bar item state across debug relaunches.</li><li>Collapse the GitHub reference watcher to a zero-width placeholder between matches so it keeps its menu bar placement while avoiding stale hit regions.</li><li>Remove misleading page-size count badges from Releases, Discussions, Tags, Branches, and Contributors submenu rows.</li><li>Sort repository activity events by timestamp so repo submenus do not show stale activity when GitHub returns events out of order.</li><li>Refresh the RepoBar website with a cleaner minimal design, dark-mode support, and clearer install/setup copy.</li></ul>
 ]]></description>
             <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.5.0/RepoBar-0.5.0.zip" length="23028725" type="application/octet-stream" sparkle:edSignature="bsExtqmVo+LaXbdQyCqpavI3kczr0khvY8Qrewebmg1TbytqGk2C4Xe+46LUVlA08njtdfcMAXdwv8Ni7lm+Bw=="/>
-        </item>
-        <item>
-            <title>0.4.2</title>
-            <pubDate>Wed, 06 May 2026 02:15:12 +0100</pubDate>
-            <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.4.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-            <description><![CDATA[<ul><li>Remove misleading page-size count badges from Releases, Discussions, Tags, Branches, and Contributors submenu rows.</li><li>Sort repository activity events by timestamp so repo submenus do not show stale activity when GitHub returns events out of order.</li><li>Refresh the RepoBar website with a cleaner minimal design, dark-mode support, and clearer install/setup copy.</li></ul>
-]]></description>
-            <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.4.2/RepoBar-0.4.2.zip" length="22630320" type="application/octet-stream" sparkle:edSignature="rXw06zq1dUrg4RCVFDvTChWgykucFmnSF//cZFL9TBlsXbL2765J06H+y14n/RlBvSIXLpYchlqo90Q9Xum2Dw=="/>
         </item>
     </channel>
 </rss>
