@@ -1,8 +1,14 @@
 import AppKit
+import RepoBarCore
 import SwiftUI
 
 @MainActor
 final class IssueNavigatorWindowController: NSObject, NSWindowDelegate {
+    private enum Metrics {
+        static let defaultContentSize = NSSize(width: 1600, height: 840)
+        static let minimumContentSize = NSSize(width: 980, height: 620)
+    }
+
     private let appState: AppState
     private var window: NSWindow?
     private var previousActivationPolicy: NSApplication.ActivationPolicy?
@@ -14,14 +20,14 @@ final class IssueNavigatorWindowController: NSObject, NSWindowDelegate {
         super.init()
     }
 
-    func show() {
+    func show(matches: [GitHubReferenceMatch] = []) {
         self.closeCleanupTask?.cancel()
         self.closeCleanupTask = nil
         self.presentationID = UUID()
         self.showDockIcon()
 
         if self.window == nil {
-            let rootView = IssueNavigatorView(appState: self.appState)
+            let rootView = IssueNavigatorView(appState: self.appState, initialMatches: matches)
             let hosting = NSHostingController(rootView: rootView)
             let window = NSWindow(contentViewController: hosting)
             window.styleMask = [.titled, .closable, .resizable, .miniaturizable]
@@ -30,11 +36,15 @@ final class IssueNavigatorWindowController: NSObject, NSWindowDelegate {
             window.titlebarAppearsTransparent = true
             window.toolbarStyle = .unified
             window.toolbar = IssueNavigatorToolbar()
-            window.setContentSize(NSSize(width: 1320, height: 820))
-            window.minSize = NSSize(width: 980, height: 620)
+            window.setContentSize(Metrics.defaultContentSize)
+            window.minSize = Metrics.minimumContentSize
             window.center()
             window.delegate = self
             self.window = window
+        } else if matches.isEmpty == false {
+            self.window?.contentViewController = NSHostingController(
+                rootView: IssueNavigatorView(appState: self.appState, initialMatches: matches)
+            )
         }
 
         self.window?.makeKeyAndOrderFront(nil)

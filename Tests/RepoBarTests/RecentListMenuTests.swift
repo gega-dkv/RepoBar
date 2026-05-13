@@ -86,4 +86,37 @@ struct RecentListMenuTests {
         #expect(RecentListMenuCoordinator.rateLimitMessage(for: error)?.contains("GitHub rate limited; resets") == true)
         #expect(RecentListMenuCoordinator.rateLimitMessage(for: URLError(.timedOut)) == nil)
     }
+
+    @MainActor
+    @Test
+    func `multi reference menu offers issue navigator action at end`() throws {
+        let appState = AppState()
+        let manager = StatusBarMenuManager(appState: appState)
+        let menu = NSMenu()
+        let matches = try [
+            Self.makeReference(number: 1),
+            Self.makeReference(number: 2)
+        ]
+
+        manager.populateGitHubReferenceMenuForTesting(menu, matches: matches)
+
+        let titles = menu.items.map(\.title)
+        #expect(Array(titles.suffix(2)) == ["", "Open 2 refs in Issue Navigator…"])
+        #expect(menu.items.last?.target === manager)
+        #expect(menu.items.last?.action == #selector(StatusBarMenuManager.openGitHubReferenceMatchesInIssueNavigator))
+    }
+
+    private static func makeReference(number: Int) throws -> GitHubReferenceMatch {
+        let url = try #require(URL(string: "https://github.com/owner/repo/issues/\(number)"))
+        return GitHubReferenceMatch(
+            query: .repositoryIssueNumber(repositoryFullName: "owner/repo", number: number),
+            title: "Issue \(number)",
+            url: url,
+            repositoryFullName: "owner/repo",
+            kind: .issue,
+            state: .open,
+            createdAt: Date(timeIntervalSinceReferenceDate: TimeInterval(number)),
+            updatedAt: Date(timeIntervalSinceReferenceDate: TimeInterval(number))
+        )
+    }
 }

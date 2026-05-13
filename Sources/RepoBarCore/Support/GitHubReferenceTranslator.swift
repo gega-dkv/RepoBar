@@ -35,6 +35,16 @@ public enum GitHubReferenceTranslator {
 
         let tokens = self.referenceTokens(in: text)
         let repositoryContext = repositoryContextOverride ?? self.repositoryContext(in: tokens)
+        if tokens.contains(where: { self.urlQuery(from: $0) != nil }) {
+            let primaryListQueries = self.primaryListItemQueries(
+                in: text,
+                repositoryContext: repositoryContext
+            )
+            if primaryListQueries.count >= 2 {
+                return primaryListQueries
+            }
+        }
+
         var queries: [GitHubReferenceQuery] = []
         var seen: Set<GitHubReferenceQuery> = []
         func append(_ query: GitHubReferenceQuery) {
@@ -79,6 +89,72 @@ public enum GitHubReferenceTranslator {
         }
 
         return queries
+    }
+
+    private static func primaryListItemQueries(
+        in text: String,
+        repositoryContext: String?
+    ) -> [GitHubReferenceQuery] {
+        let allowsNumericCommitHash = self.hasCommitContext(text)
+        var queries: [GitHubReferenceQuery] = []
+        var seen: Set<GitHubReferenceQuery> = []
+
+        func append(_ query: GitHubReferenceQuery) {
+            guard seen.insert(query).inserted else { return }
+
+            queries.append(query)
+        }
+
+        for line in text.split(whereSeparator: \.isNewline).map(String.init) {
+            guard let body = self.listItemBody(in: line),
+                  let firstToken = self.referenceTokens(in: body).first
+            else { continue }
+
+            if let query = self.urlQuery(from: firstToken) {
+                append(query)
+                continue
+            }
+
+            let compoundQueries = self.compoundRepositoryIssueQueries(from: firstToken)
+            if compoundQueries.isEmpty == false {
+                compoundQueries.forEach(append)
+                continue
+            }
+
+            guard let query = self.tokenQuery(
+                from: firstToken,
+                minimumBareDigits: 1,
+                allowBareIssueNumber: false,
+                allowNumericCommitHash: allowsNumericCommitHash
+            ) else { continue }
+
+            append(self.applyingRepositoryContext(repositoryContext, to: query))
+        }
+
+        return queries
+    }
+
+    private static func listItemBody(in line: String) -> String? {
+        let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.isEmpty == false else { return nil }
+
+        for marker in ["- ", "* ", "• "] where trimmed.hasPrefix(marker) {
+            return String(trimmed.dropFirst(marker.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+
+        var digitEnd = trimmed.startIndex
+        while digitEnd < trimmed.endIndex, trimmed[digitEnd].isNumber {
+            digitEnd = trimmed.index(after: digitEnd)
+        }
+        guard digitEnd > trimmed.startIndex,
+              digitEnd < trimmed.endIndex,
+              trimmed[digitEnd] == "." || trimmed[digitEnd] == ")"
+        else { return nil }
+
+        let markerEnd = trimmed.index(after: digitEnd)
+        guard markerEnd == trimmed.endIndex || trimmed[markerEnd].isWhitespace else { return nil }
+
+        return String(trimmed[markerEnd...]).trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     private static func groupedRepositoryIssueQueries(in text: String) -> [GitHubReferenceQuery] {

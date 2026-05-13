@@ -48,3 +48,26 @@ struct IssueNavigatorScope: Identifiable, Hashable {
 
     static let all = IssueNavigatorScope(fullName: nil, title: "All Repositories")
 }
+
+extension GitHubReferenceMatch {
+    var issueNavigatorTitle: String {
+        switch self.query {
+        case let .issueNumber(number),
+             let .repositoryNameIssueNumber(_, number),
+             let .repositoryIssueNumber(_, number):
+            "#\(number) \(self.title)"
+        case let .commitHash(hash),
+             let .repositoryCommitHash(_, hash):
+            "\(String(hash.prefix(10))) \(self.title)"
+        case let .repositoryWorkflowRun(_, runID):
+            "Run \(runID) \(self.title)"
+        }
+    }
+}
+
+extension [GitHubReferenceMatch] {
+    func issueNavigatorOrderPreservingDeduped() -> [GitHubReferenceMatch] {
+        var seen: Set<URL> = []
+        return self.filter { seen.insert($0.url).inserted }
+    }
+}

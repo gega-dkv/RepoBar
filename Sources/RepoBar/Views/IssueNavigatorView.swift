@@ -42,6 +42,14 @@ struct IssueNavigatorView: View {
         return self.results.first { $0.url == selectedURL } ?? self.results.first
     }
 
+    init(appState: AppState, initialMatches: [GitHubReferenceMatch] = []) {
+        let matches = initialMatches.issueNavigatorOrderPreservingDeduped()
+        self.appState = appState
+        self._results = State(initialValue: matches)
+        self._selectedURL = State(initialValue: matches.first?.url)
+        self._statusText = State(initialValue: matches.isEmpty ? "Loading recent issues and pull requests." : "References in pasted order")
+    }
+
     var body: some View {
         IssueNavigatorSplitView(
             sidebarMinWidth: Metrics.sidebarMinWidth,
@@ -57,7 +65,11 @@ struct IssueNavigatorView: View {
         .frame(minWidth: 980, minHeight: 620)
         .onAppear {
             self.updateClipboard(seedIfEmpty: true)
-            self.scheduleSearch(immediate: true)
+            if self.results.isEmpty {
+                self.scheduleSearch(immediate: true)
+            } else {
+                self.preloadPreviews(for: self.results)
+            }
         }
         .onDisappear {
             self.searchGeneration = UUID()
@@ -424,11 +436,13 @@ struct IssueNavigatorView: View {
             guard self.isCurrentSearch(generation) else { return }
 
             let filteredReferenceMatches = resolvedReferenceMatches.filter { self.kindFilter.matches($0.kind) }
-            let combined = Self.deduped(filteredReferenceMatches + searchedTextMatches)
+            let combined = queries.isEmpty
+                ? Self.deduped(filteredReferenceMatches + searchedTextMatches)
+                : (filteredReferenceMatches + searchedTextMatches).issueNavigatorOrderPreservingDeduped()
             self.results = combined
             self.selectedURL = combined.first?.url
             self.preloadPreviews(for: combined)
-            self.statusText = self.status(for: combined, searchedText: trimmed)
+            self.statusText = self.status(for: combined, searchedText: trimmed, preservesReferenceOrder: queries.isEmpty == false)
         } catch is CancellationError {
             return
         } catch {
@@ -489,9 +503,15 @@ struct IssueNavigatorView: View {
             }
     }
 
-    private func status(for matches: [GitHubReferenceMatch], searchedText: String) -> String {
+    private func status(
+        for matches: [GitHubReferenceMatch],
+        searchedText: String,
+        preservesReferenceOrder: Bool = false
+    ) -> String {
         if matches.isEmpty {
             searchedText.isEmpty ? "No recent items in this scope." : "No matching issues or pull requests."
+        } else if preservesReferenceOrder {
+            "References in pasted order"
         } else {
             "Updated newest first"
         }
@@ -550,7 +570,7 @@ private struct IssueNavigatorResultRow: View {
                 .padding(.top, 1)
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(self.match.title)
+                Text(self.match.issueNavigatorTitle)
                     .font(.system(size: 13.5, weight: .semibold))
                     .foregroundStyle(self.primaryForeground)
                     .lineLimit(2)
@@ -558,7 +578,6 @@ private struct IssueNavigatorResultRow: View {
                     Text(self.match.repositoryFullName)
                         .lineLimit(1)
                         .truncationMode(.middle)
-                    Text(self.match.query.displayText)
                     if let state = match.state?.label {
                         Text(state)
                     }

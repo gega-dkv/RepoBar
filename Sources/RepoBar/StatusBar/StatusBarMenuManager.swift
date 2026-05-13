@@ -758,7 +758,28 @@ final class StatusBarMenuManager: NSObject, NSMenuDelegate {
         func gitHubReferenceMenuForTesting() -> NSMenu? {
             self.gitHubReferenceMenu
         }
+
+        func populateGitHubReferenceMenuForTesting(_ menu: NSMenu, matches: [GitHubReferenceMatch]) {
+            self.populateGitHubReferenceMenu(menu, matches: matches)
+        }
     #endif
+}
+
+extension StatusBarMenuManager {
+    @objc func openGitHubReferenceMatchesInIssueNavigator() {
+        guard self.appState.session.account.isLoggedIn else {
+            self.signIn()
+            return
+        }
+
+        let matches = self.appState.session.gitHubReferenceMatches
+        guard matches.isEmpty == false else {
+            self.openIssueNavigator()
+            return
+        }
+
+        self.issueNavigatorWindowController.show(matches: matches)
+    }
 }
 
 private extension StatusBarMenuManager {
@@ -784,6 +805,17 @@ private extension StatusBarMenuManager {
             item.submenu = submenu
             menu.addItem(item)
         }
+
+        menu.addItem(.separator())
+        let item = NSMenuItem(
+            title: "Open \(matches.count) refs in Issue Navigator…",
+            action: #selector(self.openGitHubReferenceMatchesInIssueNavigator),
+            keyEquivalent: ""
+        )
+        item.target = self
+        item.image = NSImage(systemSymbolName: "rectangle.and.text.magnifyingglass", accessibilityDescription: "Issue Navigator")
+        item.image?.isTemplate = true
+        menu.addItem(item)
     }
 
     func addGitHubReferenceItems(to menu: NSMenu, match: GitHubReferenceMatch, includeBrowserPreview: Bool) {

@@ -221,6 +221,24 @@ struct GitHubReferenceMonitorTests {
     }
 
     @Test
+    func `ordered list parser prefers leading references over incidental references`() {
+        let text = """
+        1. #2172 — schema text extensions
+           URL: https://github.com/openclaw/clawhub/pull/2172
+           Why: small, real bug, linked #874.
+        2. #2173 — canonical /user/<handle> profile route
+           URL: https://github.com/openclaw/clawhub/pull/2173
+        3. #2186 — OpenAPI package catalog docs
+           URL: https://github.com/openclaw/clawhub/pull/2186
+        """
+        #expect(GitHubReferenceTranslator.queries(from: text) == [
+            .repositoryIssueNumber(repositoryFullName: "openclaw/clawhub", number: 2172),
+            .repositoryIssueNumber(repositoryFullName: "openclaw/clawhub", number: 2173),
+            .repositoryIssueNumber(repositoryFullName: "openclaw/clawhub", number: 2186)
+        ])
+    }
+
+    @Test
     func `multiple parser dedupes references after inheriting scoped context`() {
         let text = "openclaw/gogcli#569 #569 https://github.com/openclaw/gogcli/issues/569"
         #expect(GitHubReferenceTranslator.queries(from: text) == [
