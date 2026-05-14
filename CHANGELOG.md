@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.6.1 - Unreleased
+
 ## 0.6.0 - 2026-05-14
 
 - Add a full Issue Navigator window for clipboard-aware issue/PR lookup, scoped repository search, keyboard selection, copy/open actions, and inline GitHub previews.
