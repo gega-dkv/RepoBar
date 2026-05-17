@@ -65,6 +65,7 @@ public struct OAuthLoginFlow {
 
         let server = self.makeLoopbackServer(loopbackPort)
         let redirectURL = try server.start()
+        defer { server.stop() }
 
         var components = URLComponents(url: authEndpoint, resolvingAgainstBaseURL: false)!
         var queryItems = [
@@ -89,7 +90,7 @@ public struct OAuthLoginFlow {
         tokenRequest.httpMethod = "POST"
         tokenRequest.addValue("application/json", forHTTPHeaderField: "Accept")
         tokenRequest.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        tokenRequest.httpBody = Self.formUrlEncoded([
+        tokenRequest.httpBody = OAuthFormEncoder.encode([
             "client_id": clientID,
             "client_secret": clientSecret,
             "code": result.code,
@@ -109,7 +110,6 @@ public struct OAuthLoginFlow {
         )
         try self.tokenStore.save(tokens: tokens)
         try self.tokenStore.save(clientCredentials: OAuthClientCredentials(clientID: clientID, clientSecret: clientSecret))
-        server.stop()
         return tokens
     }
 
@@ -129,17 +129,6 @@ public struct OAuthLoginFlow {
         guard let cleaned = components.url else { throw GitHubAPIError.invalidHost }
 
         return cleaned
-    }
-}
-
-private extension OAuthLoginFlow {
-    static func formUrlEncoded(_ params: [String: String]) -> Data? {
-        let encoded: String = params.map { key, value in
-            let k = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
-            let v = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-            return "\(k)=\(v)"
-        }.joined(separator: "&")
-        return encoded.data(using: .utf8)
     }
 }
 

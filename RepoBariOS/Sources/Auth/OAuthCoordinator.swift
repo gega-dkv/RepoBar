@@ -62,7 +62,7 @@ final class OAuthCoordinator: NSObject, ASWebAuthenticationPresentationContextPr
         tokenRequest.httpMethod = "POST"
         tokenRequest.addValue("application/json", forHTTPHeaderField: "Accept")
         tokenRequest.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        tokenRequest.httpBody = Self.formUrlEncoded([
+        tokenRequest.httpBody = OAuthFormEncoder.encode([
             "client_id": clientID,
             "client_secret": clientSecret,
             "code": code,
@@ -147,17 +147,6 @@ final class OAuthCoordinator: NSObject, ASWebAuthenticationPresentationContextPr
                 continuation.resume(throwing: URLError(.cannotOpenFile))
             }
         }
-    }
-}
-
-private extension OAuthCoordinator {
-    static func formUrlEncoded(_ params: [String: String]) -> Data? {
-        let encoded: String = params.map { key, value -> String in
-            let k = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
-            let v = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-            return "\(k)=\(v)"
-        }.joined(separator: "&")
-        return encoded.data(using: .utf8)
     }
 }
 

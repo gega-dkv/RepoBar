@@ -42,6 +42,40 @@ struct OAuthTokenRefresherTests {
     }
 
     @Test
+    func `refresh form encodes reserved characters`() async throws {
+        let service = "com.steipete.repobar.auth.tests.\(UUID().uuidString)"
+        let store = TokenStore(service: service)
+        defer { store.clear() }
+
+        try store.save(tokens: OAuthTokens(accessToken: "old", refreshToken: "r+1&x=y", expiresAt: .distantPast))
+        try store.save(clientCredentials: OAuthClientCredentials(clientID: "cid+value", clientSecret: "secret&part=value"))
+
+        let session = URLSession(configuration: Self.sessionConfiguration())
+        let handlerID = UUID().uuidString
+        Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            let body = try #require(Self.bodyString(from: request))
+            #expect(body.contains("client_id=cid%2Bvalue"))
+            #expect(body.contains("client_secret=secret%26part%3Dvalue"))
+            #expect(body.contains("refresh_token=r%2B1%26x%3Dy"))
+
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let data = Data("""
+            {"access_token":"new","token_type":"bearer","scope":"repo","expires_in":3600,"refresh_token":"r2"}
+            """.utf8)
+            return (data, response)
+        }
+        defer { Self.MockURLProtocol.unregister(handlerID: handlerID) }
+
+        let refresher = OAuthTokenRefresher(tokenStore: store) { request in
+            let (tagged, boxed) = Self.taggedRequest(request, handlerID: handlerID)
+            _ = boxed
+            return try await session.data(for: tagged)
+        }
+
+        _ = try await refresher.refreshIfNeeded(host: RepoBarAuthDefaults.githubHost)
+    }
+
+    @Test
     func `refresh failure shows helpful message`() async throws {
         let service = "com.steipete.repobar.auth.tests.\(UUID().uuidString)"
         let store = TokenStore(service: service)

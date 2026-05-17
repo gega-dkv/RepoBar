@@ -71,6 +71,90 @@ struct OAuthLoginFlowTests {
         #expect(try store.load()?.accessToken == "tok")
         #expect(try store.loadClientCredentials()?.clientID == "cid")
         #expect(try store.loadClientCredentials()?.clientSecret == "csecret")
+        #expect(server.stopCallCount == 1)
+    }
+
+    @Test
+    @MainActor
+    func `login form encodes reserved characters`() async throws {
+        let service = "com.steipete.repobar.auth.tests.\(UUID().uuidString)"
+        let store = TokenStore(service: service)
+        defer { store.clear() }
+
+        let session = URLSession(configuration: Self.sessionConfiguration())
+        let handlerID = UUID().uuidString
+        Self.MockURLProtocol.register(handlerID: handlerID) { request in
+            let body = try #require(Self.bodyString(from: request))
+            #expect(body.contains("client_id=cid%2Bvalue"))
+            #expect(body.contains("client_secret=secret%26part%3Dvalue"))
+            #expect(body.contains("code=code%2B1%262"))
+            #expect(body.contains("redirect_uri=http%3A%2F%2F127.0.0.1%3A12345%2Fcallback%3Fspace%3Da%2520b"))
+
+            let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: nil, headerFields: nil)!
+            let data = Data("""
+            {"access_token":"tok","token_type":"bearer","expires_in":3600,"refresh_token":"ref"}
+            """.utf8)
+            return (data, response)
+        }
+        defer { Self.MockURLProtocol.unregister(handlerID: handlerID) }
+
+        let fakeRedirectURL = try #require(URL(string: "http://127.0.0.1:12345/callback?space=a b"))
+        let server = FakeLoopbackServer(
+            redirectURL: fakeRedirectURL,
+            result: (code: "code+1&2", state: "state-123")
+        )
+        let host = try #require(URL(string: "https://example.com"))
+
+        let flow = OAuthLoginFlow(
+            tokenStore: store,
+            openURL: { _ in },
+            dataProvider: { request in
+                let (tagged, boxed) = Self.taggedRequest(request, handlerID: handlerID)
+                _ = boxed
+                return try await session.data(for: tagged)
+            },
+            makeLoopbackServer: { _ in server },
+            stateProvider: { "state-123" }
+        )
+
+        _ = try await flow.login(
+            clientID: "cid+value",
+            clientSecret: "secret&part=value",
+            host: host,
+            loopbackPort: 12345,
+            timeout: 2
+        )
+    }
+
+    @Test
+    @MainActor
+    func `login stops loopback server when opening browser fails`() async throws {
+        let service = "com.steipete.repobar.auth.tests.\(UUID().uuidString)"
+        let store = TokenStore(service: service)
+        defer { store.clear() }
+
+        let fakeRedirectURL = try #require(URL(string: "http://127.0.0.1:12345/callback"))
+        let server = FakeLoopbackServer(
+            redirectURL: fakeRedirectURL,
+            result: (code: "code-123", state: "state-123")
+        )
+        let host = try #require(URL(string: "https://example.com"))
+        let flow = OAuthLoginFlow(
+            tokenStore: store,
+            openURL: { _ in throw URLError(.cannotOpenFile) },
+            dataProvider: { _ in throw URLError(.badServerResponse) },
+            makeLoopbackServer: { _ in server },
+            stateProvider: { "state-123" }
+        )
+
+        do {
+            _ = try await flow.login(clientID: "cid", clientSecret: "csecret", host: host, loopbackPort: 12345, timeout: 2)
+            Issue.record("Expected login to fail")
+        } catch {
+            #expect((error as? URLError)?.code == .cannotOpenFile)
+        }
+
+        #expect(server.stopCallCount == 1)
     }
 
     @Test
@@ -161,6 +245,7 @@ private extension OAuthLoginFlowTests {
     final class FakeLoopbackServer: LoopbackServing {
         private let redirectURL: URL
         private let result: (code: String, state: String)
+        private(set) var stopCallCount = 0
 
         init(redirectURL: URL, result: (code: String, state: String)) {
             self.redirectURL = redirectURL
@@ -175,7 +260,9 @@ private extension OAuthLoginFlowTests {
             self.result
         }
 
-        func stop() {}
+        func stop() {
+            self.stopCallCount += 1
+        }
     }
 
     // swiftlint:disable static_over_final_class

@@ -33,7 +33,7 @@ public struct OAuthTokenRefresher: Sendable {
         request.httpMethod = "POST"
         request.addValue("application/json", forHTTPHeaderField: "Accept")
         request.addValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
-        request.httpBody = Self.formUrlEncoded([
+        request.httpBody = OAuthFormEncoder.encode([
             "client_id": credentials.clientID,
             "client_secret": credentials.clientSecret,
             "grant_type": "refresh_token",
@@ -69,15 +69,6 @@ public struct OAuthTokenRefresher: Sendable {
 }
 
 private extension OAuthTokenRefresher {
-    static func formUrlEncoded(_ params: [String: String]) -> Data? {
-        let encoded: String = params.map { key, value in
-            let k = key.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? key
-            let v = value.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? value
-            return "\(k)=\(v)"
-        }.joined(separator: "&")
-        return encoded.data(using: .utf8)
-    }
-
     static func refreshErrorDetail(from data: Data) -> String? {
         if let decoded = try? JSONDecoder().decode(OAuthErrorResponse.self, from: data) {
             let error = decoded.errorDescription ?? decoded.message ?? decoded.error
