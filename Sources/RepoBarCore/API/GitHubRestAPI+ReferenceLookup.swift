@@ -6,6 +6,8 @@ private struct GitHubReferenceCacheLookupContext {
     let limit: Int
 }
 
+private let liveReferenceLookupConcurrencyLimit = 8
+
 extension GitHubRestAPI {
     func cachedReferenceMatches(query: GitHubReferenceQuery, repositories: [Repository], limit: Int) async -> [GitHubReferenceMatch] {
         guard let cache = HTTPResponseDiskCache.standard() else { return [] }
@@ -33,22 +35,35 @@ extension GitHubRestAPI {
     }
 
     func liveReferenceMatch(query: GitHubReferenceQuery, repositories: [Repository]) async -> GitHubReferenceMatch? {
+        let candidates = repositories.filter { $0.viewerCanRead && query.matches(repo: $0) }
         var matches: [GitHubReferenceMatch] = []
-        for repo in repositories where repo.viewerCanRead && query.matches(repo: repo) {
-            let match: GitHubReferenceMatch? = switch query {
-            case let .issueNumber(number),
-                 let .repositoryNameIssueNumber(_, number),
-                 let .repositoryIssueNumber(_, number):
-                await self.liveIssueNumberMatch(query: query, number: number, repo: repo)
-            case let .commitHash(hash),
-                 let .repositoryCommitHash(_, hash):
-                await self.liveCommitMatch(query: query, hash: hash, repo: repo)
-            case let .repositoryWorkflowRun(_, runID):
-                await self.liveWorkflowRunMatch(query: query, runID: runID, repo: repo)
+        for batch in candidates.repoBarBatches(of: liveReferenceLookupConcurrencyLimit) {
+            let batchMatches = await withTaskGroup(of: GitHubReferenceMatch?.self) { group in
+                for repo in batch {
+                    group.addTask {
+                        switch query {
+                        case let .issueNumber(number),
+                             let .repositoryNameIssueNumber(_, number),
+                             let .repositoryIssueNumber(_, number):
+                            await self.liveIssueNumberMatch(query: query, number: number, repo: repo)
+                        case let .commitHash(hash),
+                             let .repositoryCommitHash(_, hash):
+                            await self.liveCommitMatch(query: query, hash: hash, repo: repo)
+                        case let .repositoryWorkflowRun(_, runID):
+                            await self.liveWorkflowRunMatch(query: query, runID: runID, repo: repo)
+                        }
+                    }
+                }
+
+                var found: [GitHubReferenceMatch] = []
+                for await match in group {
+                    if let match {
+                        found.append(match)
+                    }
+                }
+                return found
             }
-            if let match {
-                matches.append(match)
-            }
+            matches.append(contentsOf: batchMatches)
         }
         return GitHubReferenceMatch.newestCreated(in: matches)
     }

@@ -2,6 +2,9 @@ import Foundation
 
 /// Lightweight GitHub client using REST plus a minimal GraphQL enrichment step.
 public actor GitHubClient {
+    private static let repositoryHydrationConcurrencyLimit = 8
+    private static let activityFetchConcurrencyLimit = 6
+
     public var apiHost: URL = .init(string: "https://api.github.com")!
     private let tokenStore = TokenStore.shared
     private var tokenProvider: (@Sendable () async throws -> OAuthTokens?)?
@@ -199,16 +202,21 @@ public actor GitHubClient {
     }
 
     private func expandRepoItems(_ items: [RepoItem]) async throws -> [Repository] {
-        try await withThrowingTaskGroup(of: Repository.self) { group in
-            for repo in items {
-                group.addTask { try await self.fullRepository(owner: repo.owner.login, name: repo.name) }
+        var out: [Repository] = []
+        for batch in items.repoBarBatches(of: Self.repositoryHydrationConcurrencyLimit) {
+            let batchRepos = try await withThrowingTaskGroup(of: Repository.self) { group in
+                for repo in batch {
+                    group.addTask { try await self.fullRepository(owner: repo.owner.login, name: repo.name) }
+                }
+                var batchOut: [Repository] = []
+                for try await repo in group {
+                    batchOut.append(repo)
+                }
+                return batchOut
             }
-            var out: [Repository] = []
-            for try await repo in group {
-                out.append(repo)
-            }
-            return out
+            out.append(contentsOf: batchRepos)
         }
+        return out
     }
 
     private struct ActivityFetchResult {
@@ -217,31 +225,36 @@ public actor GitHubClient {
     }
 
     private func fetchActivityResults(for items: [RepoItem]) async -> [String: ActivityFetchResult] {
-        await withTaskGroup(of: (String, ActivityFetchResult).self) { group in
-            for item in items {
-                group.addTask { [self] in
-                    let owner = item.owner.login
-                    let name = item.name
-                    let fullName = "\(owner)/\(name)"
-                    async let openPullsResult: Result<Int?, Error> = self.capture {
-                        try await self.restAPI.openPullRequestCount(owner: owner, name: name)
+        var out: [String: ActivityFetchResult] = [:]
+        for batch in items.repoBarBatches(of: Self.activityFetchConcurrencyLimit) {
+            let batchResults = await withTaskGroup(of: (String, ActivityFetchResult).self) { group in
+                for item in batch {
+                    group.addTask { [self] in
+                        let owner = item.owner.login
+                        let name = item.name
+                        let fullName = "\(owner)/\(name)"
+                        async let openPullsResult: Result<Int?, Error> = self.capture {
+                            try await self.restAPI.openPullRequestCount(owner: owner, name: name)
+                        }
+                        async let activityResult: Result<ActivitySnapshot, Error> = self.capture {
+                            try await self.restAPI.recentActivity(owner: owner, name: name, limit: 25)
+                        }
+                        let result = await ActivityFetchResult(
+                            pulls: openPullsResult,
+                            activity: activityResult
+                        )
+                        return (fullName, result)
                     }
-                    async let activityResult: Result<ActivitySnapshot, Error> = self.capture {
-                        try await self.restAPI.recentActivity(owner: owner, name: name, limit: 25)
-                    }
-                    let result = await ActivityFetchResult(
-                        pulls: openPullsResult,
-                        activity: activityResult
-                    )
-                    return (fullName, result)
                 }
+                var batchOut: [String: ActivityFetchResult] = [:]
+                for await (fullName, result) in group {
+                    batchOut[fullName] = result
+                }
+                return batchOut
             }
-            var out: [String: ActivityFetchResult] = [:]
-            for await (fullName, result) in group {
-                out[fullName] = result
-            }
-            return out
+            out.merge(batchResults) { _, new in new }
         }
+        return out
     }
 
     public func fullRepository(owner: String, name: String) async throws -> Repository {

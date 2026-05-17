@@ -122,23 +122,28 @@ extension GitHubRestAPI {
         guard targetNumbers.isEmpty == false else { return [:] }
 
         var counts: [Int: Int] = [:]
-        await withTaskGroup(of: PullRequestReviewCommentCount?.self) { group in
-            for number in targetNumbers {
-                group.addTask {
-                    do {
-                        let count = try await self.pullRequestReviewCommentCount(owner: owner, name: name, number: number)
-                        return PullRequestReviewCommentCount(number: number, count: count)
-                    } catch {
-                        return nil
+        for batch in Array(targetNumbers).repoBarBatches(of: 8) {
+            let batchCounts = await withTaskGroup(of: PullRequestReviewCommentCount?.self) { group in
+                for number in batch {
+                    group.addTask {
+                        do {
+                            let count = try await self.pullRequestReviewCommentCount(owner: owner, name: name, number: number)
+                            return PullRequestReviewCommentCount(number: number, count: count)
+                        } catch {
+                            return nil
+                        }
                     }
                 }
-            }
 
-            for await result in group {
-                guard let result else { continue }
+                var batchOut: [Int: Int] = [:]
+                for await result in group {
+                    guard let result else { continue }
 
-                counts[result.number] = result.count
+                    batchOut[result.number] = result.count
+                }
+                return batchOut
             }
+            counts.merge(batchCounts) { _, new in new }
         }
         return counts
     }

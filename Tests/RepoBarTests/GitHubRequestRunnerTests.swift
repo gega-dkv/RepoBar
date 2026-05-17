@@ -85,4 +85,15 @@ struct GitHubRequestRunnerTests {
         #expect(diagnostics.endpointCooldowns.first?.endpoint == "commit activity")
         #expect(diagnostics.endpointCooldowns.first?.repository == "owner/repo")
     }
+
+    @Test
+    func `log path redacts query values`() throws {
+        let url = try #require(URL(string: "https://api.github.com/search/issues?q=repo:owner/private+secret&per_page=50"))
+
+        let path = GitHubRequestRunner.logPath(for: url)
+
+        #expect(path == "/search/issues?q=<redacted>&per_page=<redacted>")
+        #expect(path.contains("owner/private") == false)
+        #expect(path.contains("secret") == false)
+    }
 }

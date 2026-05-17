@@ -44,8 +44,8 @@ actor GitHubRequestRunner {
         useETag: Bool = true
     ) async throws -> (Data, HTTPURLResponse) {
         let startedAt = Date()
-        self.logger.debug("GET \(url.pathWithQueryForLogging)")
-        await self.diag.message("GET \(url.absoluteString)")
+        self.logger.debug("GET \(Self.logPath(for: url))")
+        await self.diag.message("GET \(Self.logPath(for: url))")
         if await self.etagCache.isRateLimited(), let until = await etagCache.rateLimitUntil() {
             self.logger.warning("Blocked by local rate limit until \(until)")
             await self.diag.message("Blocked by local rateLimit until \(until)")
@@ -55,8 +55,8 @@ actor GitHubRequestRunner {
             )
         }
         if let cooldown = await backoff.cooldown(for: url) {
-            self.logger.warning("Cooldown active for \(url.pathWithQueryForLogging) until \(cooldown)")
-            await self.diag.message("Cooldown active for \(url.absoluteString) until \(cooldown)")
+            self.logger.warning("Cooldown active for \(Self.logPath(for: url)) until \(cooldown)")
+            await self.diag.message("Cooldown active for \(Self.logPath(for: url)) until \(cooldown)")
             throw GitHubAPIError.serviceUnavailable(
                 retryAfter: cooldown,
                 message: Self.cooldownMessage(for: url, until: cooldown)
@@ -75,7 +75,7 @@ actor GitHubRequestRunner {
 
         let status = response.statusCode
         if status == 304, useETag, let cached = await etagCache.cached(for: url) {
-            self.logger.debug("HTTP GET \(url.pathWithQueryForLogging) status=304 cached=true")
+            self.logger.debug("HTTP GET \(Self.logPath(for: url)) status=304 cached=true")
             await self.diag.message("304 Not Modified for \(url.lastPathComponent); using cached")
             return (cached.data, response)
         }
@@ -85,7 +85,7 @@ actor GitHubRequestRunner {
             await self.backoff.setCooldown(url: response.url ?? url, until: retryAfter)
             let retryText = RelativeFormatter.string(from: retryAfter, relativeTo: Date())
             let message = "GitHub is generating repository stats; some numbers may be stale. RepoBar will retry \(retryText)."
-            self.logger.warning("HTTP GET \(url.pathWithQueryForLogging) status=202 retryAfter=\(retryAfter)")
+            self.logger.warning("HTTP GET \(Self.logPath(for: url)) status=202 retryAfter=\(retryAfter)")
             await self.diag.message("202 for \(url.lastPathComponent); cooldown until \(retryAfter)")
             throw GitHubAPIError.serviceUnavailable(
                 retryAfter: retryAfter,
@@ -99,7 +99,7 @@ actor GitHubRequestRunner {
 
             // If we still have quota, this 403 is likely permissions/abuse detection; surface it as a normal error.
             if let remaining, remaining > 0 {
-                self.logger.warning("HTTP GET \(url.pathWithQueryForLogging) status=\(status) remaining=\(remaining)")
+                self.logger.warning("HTTP GET \(Self.logPath(for: url)) status=\(status) remaining=\(remaining)")
                 await self.diag.message("403 with remaining=\(remaining) on \(url.lastPathComponent); treating as bad status")
                 throw GitHubAPIError.badStatus(code: status, message: Self.statusMessage(for: status, data: data))
             }
@@ -110,13 +110,13 @@ actor GitHubRequestRunner {
             await self.backoff.setCooldown(url: response.url ?? url, until: resetDate)
             self.lastRateLimitError = "GitHub rate limit hit; resets " +
                 "\(RelativeFormatter.string(from: resetDate, relativeTo: Date()))."
-            self.logger.warning("HTTP GET \(url.pathWithQueryForLogging) rateLimited status=\(status) reset=\(resetDate)")
+            self.logger.warning("HTTP GET \(Self.logPath(for: url)) rateLimited status=\(status) reset=\(resetDate)")
             await self.diag.message("Rate limited on \(url.lastPathComponent); resets \(resetDate)")
             throw GitHubAPIError.rateLimited(until: resetDate, message: self.lastRateLimitError ?? "Rate limited.")
         }
 
         guard allowedStatuses.contains(status) else {
-            self.logger.warning("HTTP GET \(url.pathWithQueryForLogging) unexpectedStatus=\(status)")
+            self.logger.warning("HTTP GET \(Self.logPath(for: url)) unexpectedStatus=\(status)")
             await self.diag.message("Unexpected status \(status) for \(url.lastPathComponent)")
             throw GitHubAPIError.badStatus(
                 code: status,
@@ -245,7 +245,7 @@ actor GitHubRequestRunner {
         await self.diag.message(
             "HTTP \(method) \(url.path) status=\(response.statusCode) res=\(resource) lim=\(limit) rem=\(remaining) used=\(used) reset=\(resetText) dur=\(durationMs)ms"
         )
-        let path = url.pathWithQueryForLogging
+        let path = Self.logPath(for: url)
         self.logger.debug(
             "HTTP \(method) \(path) status=\(response.statusCode) res=\(resource) rem=\(remaining)/\(limit) used=\(used) reset=\(resetText) dur=\(durationMs)ms"
         )
@@ -328,6 +328,22 @@ actor GitHubRequestRunner {
 
         return "\(components[repoIndex + 1])/\(components[repoIndex + 2])"
     }
+
+    static func logPath(for url: URL) -> String {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
+              let queryItems = components.queryItems,
+              queryItems.isEmpty == false
+        else {
+            guard let query = url.query, query.isEmpty == false else { return url.path }
+
+            return "\(url.path)?<redacted>"
+        }
+
+        let query = queryItems
+            .map { "\($0.name)=<redacted>" }
+            .joined(separator: "&")
+        return "\(url.path)?\(query)"
+    }
 }
 
 private struct GitHubErrorResponse: Decodable {
@@ -337,14 +353,6 @@ private struct GitHubErrorResponse: Decodable {
 
 private struct GitHubErrorDetail: Decodable {
     let message: String?
-}
-
-private extension URL {
-    var pathWithQueryForLogging: String {
-        guard let query, !query.isEmpty else { return self.path }
-
-        return "\(self.path)?\(query)"
-    }
 }
 
 struct RequestRunnerDiagnostics {
