@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.6.1 - Unreleased
+## 0.6.1 - 2026-05-17
 
 - Recognize copied prose like `PR 123, 456 and 789` as multiple GitHub references.
 - Clean up failed OAuth login listeners and encode OAuth token requests correctly when credentials or refresh tokens contain reserved characters.
