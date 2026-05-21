@@ -49,6 +49,7 @@ xcrun notarytool submit /tmp/RepoBarNotarize.zip \
   --key /tmp/repobar-api-key.p8 \
   --key-id "$APP_STORE_CONNECT_KEY_ID" \
   --issuer "$APP_STORE_CONNECT_ISSUER_ID" \
+  --no-s3-acceleration \
   --wait
 
 echo "Stapling ticket"
