@@ -3,6 +3,21 @@
     <channel>
         <title>RepoBar</title>
         <item>
+            <title>0.6.2</title>
+            <pubDate>Thu, 21 May 2026 22:12:03 +0100</pubDate>
+            <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.6.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
+            <description><![CDATA[<h2>RepoBar 0.6.2</h2>
+<ul>
+<li>Reduce idle and Issue Navigator CPU use by coalescing timers, polling copied references at background priority, warming previews only while menus or windows are open, and tearing down previews when windows close, while keeping clipboard detection responsive.</li>
+</ul>
+<p><a href="https://github.com/steipete/RepoBar/blob/main/CHANGELOG.md">View full changelog</a></p>
+]]></description>
+            <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.6.2/RepoBar-0.6.2.zip" length="24706222" type="application/octet-stream" sparkle:edSignature="jHJC/Jk8QMad5WiGBxKRmSS9OQWE5w8M4ehb3KsQ44ZbbKzNtmLpkbD5133Bf8ZjEUfY7/cDslRxnrO0wHBsAA=="/>
+        </item>
+        <item>
             <title>0.6.1</title>
             <pubDate>Sun, 17 May 2026 08:17:24 +0100</pubDate>
             <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
@@ -23,17 +38,6 @@
             <description><![CDATA[<ul><li>Add a full Issue Navigator window for clipboard-aware issue/PR lookup, scoped repository search, keyboard selection, copy/open actions, and inline GitHub previews.</li><li>Add opt-in GitHub pull request notifications for pinned repositories, with browser or Issue Navigator click handling (thanks @Whiteknight07).</li><li>Add an opt-in Actions &amp; Runners menu section for GitHub Actions queue, billing usage, cache, retention, and runner status, with settings to pin the owners RepoBar monitors (thanks @yashiels).</li><li>Add a multi-reference menu action that opens the current GitHub reference set in Issue Navigator.</li><li>Recognize copied GitHub reference lists that write pull requests as `owner/repo #123`.</li><li>Preserve pasted GitHub reference list order in Issue Navigator and ignore incidental references inside list descriptions.</li><li>Show issue, pull request, commit, or workflow run identifiers before titles in the Issue Navigator sidebar.</li><li>Sort Issue Navigator rows by latest update time, choose recent repositories using the active issue/PR filter, and surface scoped repository load failures.</li><li>Cap Issue Navigator all-repository search fan-out, respect the selected issue/PR filter for pasted references, and hide the navigator while signed out.</li><li>Prevent canceled Issue Navigator searches from overwriting newer results and preserve merged pull request state in text search results.</li><li>Keep Issue Navigator typing from opening the selected result, avoid public GitHub fallback before repository inventory loads, and make quick close/reopen cleanup safe.</li><li>Keep Issue Navigator all-repository searches usable when individual repository searches fail, and show GitHub response details instead of a generic client error.</li><li>Show RepoBar in the Dock while the Issue Navigator window is open, then return to menu-bar-only mode when it closes.</li><li>Open Issue Navigator wider by default so the GitHub preview has more usable space.</li><li>Refine Issue Navigator sidebar chrome with a translucent material sidebar and subtler native split-view divider.</li><li>Simplify GitHub Archives settings to accept one repository input while RepoBar manages derived labels and imported SQLite databases internally.</li><li>Harden RepoBar CLI validation and output for GitHub archives, local project roots, markdown images, settings, and copied GitHub references.</li><li>Replace the menu bar GitHub rate-limit bar glyph with a circular quota meter so RepoBar is easier to distinguish from other menu bar apps.</li><li>Fix RepoBar website mobile install cards so long commands and copy controls stay inline without horizontal overflow.</li></ul>
 ]]></description>
             <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.6.0/RepoBar-0.6.0.zip" length="24631424" type="application/octet-stream" sparkle:edSignature="yEy469Ou9pDqr9sLSLX9E/MfN+UU9u8G1NHrgPsLfl3sJB91O2h+vL+whUsF7uZfib7XTEqqSbDfebxLX1vYCw=="/>
-        </item>
-        <item>
-            <title>0.5.2</title>
-            <pubDate>Mon, 11 May 2026 03:18:47 +0100</pubDate>
-            <link>https://raw.githubusercontent.com/steipete/RepoBar/main/appcast.xml</link>
-            <sparkle:version>12</sparkle:version>
-            <sparkle:shortVersionString>0.5.2</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>10.13</sparkle:minimumSystemVersion>
-            <description><![CDATA[<ul><li>Recognize copied repository-name issue references like `discrawl#64` and resolve them against a unique local or accessible GitHub repository.</li><li>Resolve bare copied commit hashes like `0213e9d` against local repositories before falling back to broad GitHub lookup.</li><li>Recognize copied GitHub Actions run URLs like `owner/repo/actions/runs/123` as GitHub references.</li><li>Move GitHub reference preview actions into an inline browser header with Back, Copy, and Open controls while keeping the preview&#x27;s persistent GitHub web session.</li><li>Explain in GitHub API Status that rate limits are shared by the GitHub user or actor across PATs, OAuth/GitHub App user tokens, and `gh` CLI requests.</li><li>Recognize chained and ranged copied references like `owner/repo#70/#71` and `owner/repo#66-#69` as multiple GitHub references.</li><li>Start inline GitHub reference browser previews below the repository header so pull request content is visible sooner.</li><li>Improve GitHub reference parsing for grouped `owner/repo: #1, #2` issue lists.</li><li>Rename the GitHub rate-limit menu to GitHub API Status and show the current blocker, shared-token note, endpoint cooldowns, live bucket quotas, and sample age as separate lines.</li><li>Bring the iOS app closer to macOS parity with repository search/filter/sort/owner controls, GitHub rate-limit diagnostics, a manual GitHub reference resolver, share-sheet handoff, and inline reference previews.</li></ul>
-]]></description>
-            <enclosure url="https://github.com/steipete/RepoBar/releases/download/v0.5.2/RepoBar-0.5.2.zip" length="23261039" type="application/octet-stream" sparkle:edSignature="h7I7EUd2Sk0pku96isqJ2nD+BCJuLMZVcZ1pe0MLFVeZe/EFGT029laOgv1ZuGZ/FwWjTWCWYczAe+f3Dw2RBA=="/>
         </item>
     </channel>
 </rss>
