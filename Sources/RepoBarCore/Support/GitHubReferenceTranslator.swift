@@ -35,7 +35,7 @@ public enum GitHubReferenceTranslator {
 
         let tokens = self.referenceTokens(in: text)
         let repositoryContext = repositoryContextOverride
-            ?? self.repositoryContext(in: tokens)
+            ?? self.repositoryContext(in: text)
             ?? self.listItemRepositoryContext(in: text)
         let primaryListQueries = self.primaryListItemQueries(
             in: text,
@@ -548,7 +548,7 @@ public enum GitHubReferenceTranslator {
         }
     }
 
-    private static func repositoryContext(in tokens: [String]) -> String? {
+    private static func repositoryContext(in text: String) -> String? {
         var repositoryFullNames: [String] = []
         var seen: Set<String> = []
 
@@ -558,21 +558,50 @@ public enum GitHubReferenceTranslator {
             repositoryFullNames.append(repositoryFullName)
         }
 
-        for (index, token) in tokens.enumerated() {
-            if token.contains("#") == false, self.isRepositoryFullName(token), self.isLikelyRepositoryContextToken(at: index, in: tokens) {
-                append(token)
-                continue
+        var sawPrimaryListReference = false
+        for line in text.split(separator: "\n", omittingEmptySubsequences: false).map(String.init) {
+            let lineHasPrimaryListReference = self.startsWithPrimaryListReference(in: line)
+            let tokens = self.referenceTokens(in: line)
+            for (index, token) in tokens.enumerated() {
+                if token.contains("#") == false,
+                   sawPrimaryListReference == false,
+                   lineHasPrimaryListReference == false,
+                   self.isRepositoryFullName(token),
+                   self.isLikelyRepositoryContextToken(at: index, in: tokens)
+                {
+                    append(token)
+                    continue
+                }
+                if let repositoryFullName = self.urlQuery(from: token)?.repositoryFullName {
+                    append(repositoryFullName)
+                    continue
+                }
+                if let repositoryFullName = self.repositoryIssueNumber(from: token)?.repositoryFullName {
+                    append(repositoryFullName)
+                }
             }
-            if let repositoryFullName = self.urlQuery(from: token)?.repositoryFullName {
-                append(repositoryFullName)
-                continue
-            }
-            if let repositoryFullName = self.repositoryIssueNumber(from: token)?.repositoryFullName {
-                append(repositoryFullName)
+            if lineHasPrimaryListReference {
+                sawPrimaryListReference = true
             }
         }
 
         return repositoryFullNames.count == 1 ? repositoryFullNames[0] : nil
+    }
+
+    private static func startsWithPrimaryListReference(in line: String) -> Bool {
+        guard let body = self.listItemBody(in: line),
+              let firstToken = self.referenceTokens(in: body).first
+        else { return false }
+
+        if self.urlQuery(from: firstToken) != nil { return true }
+        if self.compoundBareIssueQueries(from: firstToken).isEmpty == false { return true }
+        if self.compoundRepositoryIssueQueries(from: firstToken).isEmpty == false { return true }
+        return self.tokenQuery(
+            from: firstToken,
+            minimumBareDigits: 1,
+            allowBareIssueNumber: false,
+            allowNumericCommitHash: self.hasCommitContext(line)
+        ) != nil
     }
 
     private static func listItemRepositoryContext(in text: String) -> String? {

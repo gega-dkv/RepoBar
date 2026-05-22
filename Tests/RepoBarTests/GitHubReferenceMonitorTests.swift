@@ -266,6 +266,44 @@ struct GitHubReferenceMonitorTests {
     }
 
     @Test
+    func `leading issue list ignores prose repository paths in item details`() {
+        let text = """
+         - #72085: close. Bad rebase artifact; adds ~2.7k duplicated config docs with stray :wq
+            lines.
+          - #71831: add. Small browser docs note; matches current bare WebSocket CDP fallback
+            behavior.
+          - #29110: close. Bitwarden Secrets-specific resolver/example; product-specific promotion
+            and adds a maintained script surface.
+          - #55010: add. Correct Plugin SDK migration table fix; mapAllowlistResolutionInputs is
+            exported from plugin-sdk/allow-from.
+          - #45683: add. Correct default docs: runtime defaults are stallSoftMs=10000,
+            stallHardMs=30000.
+          - #46552: add, but manually fold/simplify. Useful steer/streaming clarification; current
+            docs already cover part of it.
+          - #40039: add. Useful troubleshooting note for narrow tools.profile, with wording kept
+            security-conscious.
+          - #39513: add partially. Cron/HEARTBEAT behavior is real; I'd add the cron docs note,
+            skip the AGENTS template churn/comment.
+          - #40387: close. EasyRunner-specific deployment guide, external product/website
+            promotion.
+          - #38685: add. Useful Telegram multi-agent same-group example; fold into existing
+            Telegram bots-per-agent accordion.
+        """
+        #expect(GitHubReferenceTranslator.queries(from: text) == [
+            .issueNumber(72085),
+            .issueNumber(71831),
+            .issueNumber(29110),
+            .issueNumber(55010),
+            .issueNumber(45683),
+            .issueNumber(46552),
+            .issueNumber(40039),
+            .issueNumber(39513),
+            .issueNumber(40387),
+            .issueNumber(38685)
+        ])
+    }
+
+    @Test
     func `multiple parser prioritizes copied triage list references`() {
         let text = """
          State: main, clean, pulled. Open PRs: none. Open issues: 12.
