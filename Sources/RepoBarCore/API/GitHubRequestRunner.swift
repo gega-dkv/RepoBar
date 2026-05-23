@@ -9,6 +9,9 @@ actor GitHubRequestRunner {
     private var lastRateLimitError: String?
     private var latestRestRateLimit: RateLimitSnapshot?
     private var latestRateLimitResources: RateLimitResourcesSnapshot?
+    private let coreLimiter = AsyncPermitPool(limit: 6)
+    private let searchLimiter = AsyncPermitPool(limit: 1)
+    private let statsLimiter = AsyncPermitPool(limit: 2)
 
     init(
         etagCache: ETagCache = ETagCache.persistent(),
@@ -68,7 +71,7 @@ actor GitHubRequestRunner {
             request.addValue(cached.etag, forHTTPHeaderField: "If-None-Match")
         }
 
-        let (data, responseAny) = try await URLSession.shared.data(for: request)
+        let (data, responseAny) = try await self.data(for: request, url: url)
         guard let response = responseAny as? HTTPURLResponse else { throw URLError(.badServerResponse) }
 
         await self.logResponse("GET", url: url, response: response, startedAt: startedAt)
@@ -150,6 +153,30 @@ actor GitHubRequestRunner {
             request.addValue(value, forHTTPHeaderField: header)
         }
         return request
+    }
+
+    private func data(for request: URLRequest, url: URL) async throws -> (Data, URLResponse) {
+        let limiter = self.limiter(for: url)
+        await limiter.acquire()
+        do {
+            let result = try await URLSession.shared.data(for: request)
+            await limiter.release()
+            return result
+        } catch {
+            await limiter.release()
+            throw error
+        }
+    }
+
+    private func limiter(for url: URL) -> AsyncPermitPool {
+        let path = url.path
+        if path.hasPrefix("/search/") {
+            return self.searchLimiter
+        }
+        if path.contains("/stats/") {
+            return self.statsLimiter
+        }
+        return self.coreLimiter
     }
 
     static func cooldownMessage(for url: URL, until: Date, now: Date = Date()) -> String {

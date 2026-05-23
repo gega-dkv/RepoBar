@@ -563,12 +563,12 @@ public enum GitHubReferenceTranslator {
             let lineHasPrimaryListReference = self.startsWithPrimaryListReference(in: line)
             let tokens = self.referenceTokens(in: line)
             for (index, token) in tokens.enumerated() {
-                if token.contains("#") == false,
-                   sawPrimaryListReference == false,
-                   lineHasPrimaryListReference == false,
-                   self.isRepositoryFullName(token),
-                   self.isLikelyRepositoryContextToken(at: index, in: tokens)
-                {
+                let isProseRepositoryContext = token.contains("#") == false
+                    && sawPrimaryListReference == false
+                    && lineHasPrimaryListReference == false
+                    && self.isRepositoryFullName(token)
+                    && self.isLikelyRepositoryContextToken(at: index, in: tokens)
+                if isProseRepositoryContext {
                     append(token)
                     continue
                 }

@@ -2,6 +2,7 @@
 
 ## 0.6.5 - Unreleased
 
+- Reduce GitHub pressure by throttling REST/GraphQL request lanes, moving repo count/release hydration to GraphQL, and fetching commit-activity heatmaps only for visible rows with a daily TTL.
 - Keep REST core rate-limit diagnostics focused on the shared quota instead of filling Current Blocker with per-request cooldown rows.
 - Keep copied triage lists with leading bare GitHub references from inheriting incidental repository paths mentioned later in item descriptions.
 

@@ -37,6 +37,11 @@ struct RepoDetailStoreTests {
     }
 
     @Test
+    func `default heatmap policy keeps stats stale ok for a day`() {
+        #expect(RepoDetailCacheConstants.heatmapTTL == 24 * 60 * 60)
+    }
+
+    @Test
     func `store uses memory after disk removal`() throws {
         let baseURL = FileManager.default.temporaryDirectory.appending(path: "repobar-cache-\(UUID().uuidString)")
         defer { try? FileManager.default.removeItem(at: baseURL) }

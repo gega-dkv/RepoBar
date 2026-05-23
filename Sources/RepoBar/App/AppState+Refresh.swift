@@ -88,7 +88,7 @@ extension AppState {
                 )
             }
             let targets = self.selectMenuTargets(from: ordered)
-            let hydrated = await self.hydrateMenuTargets(targets)
+            let hydrated = await self.hydrateMenuTargets(targets, fetchHeatmap: true)
             try Task.checkCancellation()
             await self.updateAccessibleRepositories(self.mergeHydrated(hydrated, into: repos))
             let merged = self.mergeHydrated(hydrated, into: ordered)
@@ -213,17 +213,18 @@ extension AppState {
         await self.applyLoggedOutState(localSnapshot: localSnapshot, lastError: error.userFacingMessage)
     }
 
-    private func hydrateMenuTargets(_ repos: [Repository]) async -> [Repository] {
+    private func hydrateMenuTargets(_ repos: [Repository], fetchHeatmap: Bool) async -> [Repository] {
         guard !repos.isEmpty else { return [] }
 
         let limit = max(1, min(self.hydrateConcurrencyLimit, repos.count))
+        let options = RepositoryDetailOptions(fetchHeatmap: fetchHeatmap)
         var detailed: [Repository] = []
         for batch in repos.chunked(into: limit) {
             if Task.isCancelled { break }
             let batchResult = await withTaskGroup(of: Repository?.self) { group in
                 for repo in batch {
-                    group.addTask { [github] in
-                        try? await github.fullRepository(owner: repo.owner, name: repo.name)
+                    group.addTask { [github, options] in
+                        try? await github.fullRepository(owner: repo.owner, name: repo.name, options: options)
                     }
                 }
                 var batchOutput: [Repository] = []
@@ -352,7 +353,7 @@ extension AppState {
         self.prefetchTask = Task(priority: .utility) { [weak self] in
             guard let self else { return }
 
-            let hydrated = await self.hydrateMenuTargets(prefetchTargets)
+            let hydrated = await self.hydrateMenuTargets(prefetchTargets, fetchHeatmap: false)
             guard Task.isCancelled == false, hydrated.isEmpty == false else { return }
 
             await MainActor.run {

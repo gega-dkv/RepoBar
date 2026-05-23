@@ -7,6 +7,7 @@ actor GraphQLClient {
     private var rateLimit: RateLimitSnapshot?
     private let responseCache = GraphQLResponseDiskCache.standard()
     private let responseCacheTTL: TimeInterval = 15 * 60
+    private let requestLimiter = AsyncPermitPool(limit: 4)
     private let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
@@ -41,8 +42,8 @@ actor GraphQLClient {
             query RepoSummary($owner: String!, $name: String!) {
               repository(owner: $owner, name: $name) {
                 name
-                releases(last: 1, orderBy: {field: CREATED_AT, direction: DESC}) {
-                  nodes { name tagName publishedAt url }
+                releases(first: 20, orderBy: {field: CREATED_AT, direction: DESC}) {
+                  nodes { name tagName publishedAt createdAt url isDraft }
                 }
                 issues(states: OPEN) { totalCount }
                 pullRequests(states: OPEN) { totalCount }
@@ -56,7 +57,7 @@ actor GraphQLClient {
         let cacheKey = self.cacheKey(operation: "RepoSummary", bodyData: bodyData)
         if let cached = self.responseCache?.cached(key: cacheKey, maxAge: self.responseCacheTTL) {
             await self.diag.message("GraphQL RepoSummary \(owner)/\(name) cached")
-            return try self.decodeRepoSummary(from: cached.data, owner: owner, name: name)
+            return try Self.decodeRepoSummary(from: cached.data, owner: owner, name: name)
         }
 
         var request = URLRequest(url: endpoint)
@@ -68,11 +69,11 @@ actor GraphQLClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await self.data(for: request)
         } catch {
             if let stale = self.responseCache?.stale(key: cacheKey) {
                 await self.diag.message("GraphQL RepoSummary \(owner)/\(name) using stale cache after \(error.userFacingMessage)")
-                return try self.decodeRepoSummary(from: stale.data, owner: owner, name: name)
+                return try Self.decodeRepoSummary(from: stale.data, owner: owner, name: name)
             }
             throw error
         }
@@ -86,7 +87,7 @@ actor GraphQLClient {
             await self.diag.message("GraphQL status \(http.statusCode) for \(owner)/\(name)")
             if let stale = self.responseCache?.stale(key: cacheKey), Self.canUseStaleCache(for: http.statusCode) {
                 await self.diag.message("GraphQL RepoSummary \(owner)/\(name) using stale cache for HTTP \(http.statusCode)")
-                return try self.decodeRepoSummary(from: stale.data, owner: owner, name: name)
+                return try Self.decodeRepoSummary(from: stale.data, owner: owner, name: name)
             }
             if http.statusCode == 401 {
                 throw URLError(.userAuthenticationRequired)
@@ -95,24 +96,38 @@ actor GraphQLClient {
         }
 
         self.responseCache?.save(key: cacheKey, endpoint: self.endpoint, operation: "RepoSummary", body: bodyData, responseBody: data)
-        return try self.decodeRepoSummary(from: data, owner: owner, name: name)
+        return try Self.decodeRepoSummary(from: data, owner: owner, name: name)
     }
 
-    private func decodeRepoSummary(from data: Data, owner _: String, name _: String) throws -> RepoSummary {
+    nonisolated static func decodeRepoSummary(from data: Data, owner _: String, name _: String) throws -> RepoSummary {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
         let decoded = try decoder.decode(GraphQLResponse<RepoSummaryData>.self, from: data)
         guard let repo = decoded.data.repository else {
             throw URLError(.cannotParseResponse)
         }
 
-        let release: Release? = repo.releases.nodes?.first.flatMap {
-            Release(name: $0.name ?? $0.tagName, tag: $0.tagName, publishedAt: $0.publishedAt, url: $0.url)
-        }
+        let release = Self.latestRelease(from: repo.releases.nodes ?? [])
 
         return RepoSummary(
             openIssues: repo.issues.totalCount,
             openPulls: repo.pullRequests.totalCount,
             release: release
         )
+    }
+
+    private nonisolated static func latestRelease(from nodes: [ReleaseNode]) -> Release? {
+        let candidates = nodes
+            .filter { !$0.isDraft }
+            .sorted {
+                let lhsDate = $0.publishedAt ?? $0.createdAt ?? .distantPast
+                let rhsDate = $1.publishedAt ?? $1.createdAt ?? .distantPast
+                return lhsDate > rhsDate
+            }
+        guard let release = candidates.first else { return nil }
+
+        let date = release.publishedAt ?? release.createdAt ?? Date.distantPast
+        return Release(name: release.name ?? release.tagName, tag: release.tagName, publishedAt: date, url: release.url)
     }
 
     func userContributionHeatmap(login: String) async throws -> [HeatmapCell] {
@@ -156,7 +171,7 @@ actor GraphQLClient {
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await URLSession.shared.data(for: request)
+            (data, response) = try await self.data(for: request)
         } catch {
             if let stale = self.responseCache?.stale(key: cacheKey) {
                 await self.diag.message("GraphQL UserContributions \(login) using stale cache after \(error.userFacingMessage)")
@@ -227,6 +242,18 @@ actor GraphQLClient {
         )
     }
 
+    private func data(for request: URLRequest) async throws -> (Data, URLResponse) {
+        await self.requestLimiter.acquire()
+        do {
+            let result = try await URLSession.shared.data(for: request)
+            await self.requestLimiter.release()
+            return result
+        } catch {
+            await self.requestLimiter.release()
+            throw error
+        }
+    }
+
     private func cacheKey(operation: String, bodyData: Data) -> String {
         let body = String(data: bodyData, encoding: .utf8) ?? bodyData.base64EncodedString()
         return "\(self.endpoint.absoluteString)\t\(operation)\t\(body)"
@@ -288,8 +315,10 @@ private struct ReleaseConnection: Decodable {
 private struct ReleaseNode: Decodable {
     let name: String?
     let tagName: String
-    let publishedAt: Date
+    let publishedAt: Date?
+    let createdAt: Date?
     let url: URL
+    let isDraft: Bool
 }
 
 private struct CountContainer: Decodable {

@@ -23,6 +23,7 @@ public actor GitHubClient {
     )
     private lazy var repoDetailCoordinator = RepoDetailCoordinator(
         restAPI: restAPI,
+        graphQL: graphQL,
         policy: RepoDetailCachePolicy.default
     )
     private var prefetchedRepos: [Repository] = []
@@ -257,23 +258,31 @@ public actor GitHubClient {
         return out
     }
 
-    public func fullRepository(owner: String, name: String) async throws -> Repository {
-        let key = "\(owner.lowercased())/\(name.lowercased())"
+    public func fullRepository(
+        owner: String,
+        name: String,
+        options: RepositoryDetailOptions = .default
+    ) async throws -> Repository {
+        let key = "\(owner.lowercased())/\(name.lowercased())#heatmap:\(options.fetchHeatmap)"
         if let task = self.inflightRepoDetails[key] {
             return try await task.value
         }
         let task = Task { [weak self] () throws -> Repository in
             guard let self else { throw CancellationError() }
 
-            return try await self.fullRepositoryInternal(owner: owner, name: name)
+            return try await self.fullRepositoryInternal(owner: owner, name: name, options: options)
         }
         self.inflightRepoDetails[key] = task
         defer { self.inflightRepoDetails[key] = nil }
         return try await task.value
     }
 
-    private func fullRepositoryInternal(owner: String, name: String) async throws -> Repository {
-        try await self.repoDetailCoordinator.fullRepository(owner: owner, name: name)
+    private func fullRepositoryInternal(
+        owner: String,
+        name: String,
+        options: RepositoryDetailOptions
+    ) async throws -> Repository {
+        try await self.repoDetailCoordinator.fullRepository(owner: owner, name: name, options: options)
     }
 
     private func activityRepository(
