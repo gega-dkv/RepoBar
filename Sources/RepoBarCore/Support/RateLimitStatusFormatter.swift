@@ -122,11 +122,11 @@ public enum RateLimitStatusFormatter {
         if currentRows.isEmpty == false {
             sections.append(RateLimitDisplaySection(title: "Details", rows: currentRows))
         }
-        let endpointCooldowns = diagnostics.endpointCooldowns.filter { $0.retryAfter > now }
+        let endpointCooldowns = Self.activeEndpointCooldowns(diagnostics.endpointCooldowns, now: now)
         if endpointCooldowns.isEmpty == false {
             sections.append(RateLimitDisplaySection(
                 title: "Endpoint Cooldowns",
-                rows: endpointCooldowns.map { Self.endpointCooldownText($0, now: now) }
+                rows: Self.endpointCooldownRows(endpointCooldowns, now: now)
             ))
         }
 
@@ -245,19 +245,17 @@ public enum RateLimitStatusFormatter {
             ))
         }
 
-        let activeCooldowns = diagnostics.endpointCooldowns
-            .filter { $0.retryAfter > now }
-            .sorted { lhs, rhs in
-                if lhs.retryAfter != rhs.retryAfter { return lhs.retryAfter < rhs.retryAfter }
-                return lhs.url < rhs.url
-            }
-        for cooldown in activeCooldowns {
+        let activeCooldowns = Self.activeEndpointCooldowns(diagnostics.endpointCooldowns, now: now)
+        if rows.isEmpty, let cooldown = activeCooldowns.first {
+            let detailText = activeCooldowns.count == 1
+                ? Self.endpointCooldownText(cooldown, now: now)
+                : Self.endpointCooldownSummaryText(activeCooldowns, now: now)
             rows.append(RateLimitDisplayRow(
-                text: "Endpoint cooldown",
-                resource: cooldown.endpoint,
-                quotaText: nil,
+                text: activeCooldowns.count == 1 ? "Endpoint cooldown" : "Endpoint cooldowns",
+                resource: activeCooldowns.count == 1 ? cooldown.endpoint : "endpoint-cooldowns",
+                quotaText: activeCooldowns.count == 1 ? nil : "\(activeCooldowns.count) active",
                 resetText: "retry \(RelativeFormatter.string(from: cooldown.retryAfter, relativeTo: now))",
-                detailText: Self.endpointCooldownText(cooldown, now: now),
+                detailText: detailText,
                 percentRemaining: nil
             ))
         }
@@ -275,6 +273,46 @@ public enum RateLimitStatusFormatter {
         }
 
         return rows
+    }
+
+    private static func activeEndpointCooldowns(_ cooldowns: [EndpointCooldownSummary], now: Date) -> [EndpointCooldownSummary] {
+        cooldowns
+            .filter { $0.retryAfter > now }
+            .sorted { lhs, rhs in
+                if lhs.retryAfter != rhs.retryAfter { return lhs.retryAfter < rhs.retryAfter }
+                return lhs.url < rhs.url
+            }
+    }
+
+    private static func endpointCooldownRows(_ cooldowns: [EndpointCooldownSummary], now: Date) -> [String] {
+        let grouped = Dictionary(grouping: cooldowns, by: \.endpoint)
+        let rows = grouped.keys.sorted().compactMap { endpoint -> String? in
+            guard let group = grouped[endpoint]?.sorted(by: { lhs, rhs in
+                if lhs.retryAfter != rhs.retryAfter { return lhs.retryAfter < rhs.retryAfter }
+                return lhs.url < rhs.url
+            }), let first = group.first
+            else { return nil }
+
+            if group.count == 1 {
+                return Self.endpointCooldownText(first, now: now)
+            }
+
+            let target = group.compactMap(\.repository).isEmpty ? "requests" : "repositories"
+            return "\(endpoint): \(group.count) \(target) · retry \(RelativeFormatter.string(from: first.retryAfter, relativeTo: now))"
+        }
+
+        let limit = 8
+        guard rows.count > limit else { return rows }
+
+        return Array(rows.prefix(limit)) + ["\(rows.count - limit) more endpoint cooldown groups"]
+    }
+
+    private static func endpointCooldownSummaryText(_ cooldowns: [EndpointCooldownSummary], now: Date) -> String {
+        let rows = Self.endpointCooldownRows(cooldowns, now: now)
+        guard let first = rows.first else { return "" }
+
+        let extraCount = max(0, cooldowns.count - 1)
+        return extraCount > 0 ? "\(first) · \(extraCount) more active" : first
     }
 
     private static func budgetModelRows(authMethod: AuthMethod, isCoreBlocked: Bool) -> [RateLimitDisplayRow] {

@@ -358,6 +358,54 @@ struct RateLimitStatusFormatterTests {
     }
 
     @Test
+    func `core blocker keeps endpoint cooldown fanout out of current blocker`() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 7500)
+        let diagnostics = try DiagnosticsSummary(
+            apiHost: #require(URL(string: "https://api.github.com")),
+            rateLimitReset: now.addingTimeInterval(120),
+            lastRateLimitError: "GitHub rate limit hit; resets in 2 min.",
+            etagEntries: 0,
+            backoffEntries: 3,
+            endpointCooldowns: [
+                EndpointCooldownSummary(
+                    endpoint: "issues/40791",
+                    repository: "openclaw/clawhub",
+                    url: "https://api.github.com/repos/openclaw/clawhub/issues/40791",
+                    retryAfter: now.addingTimeInterval(120)
+                ),
+                EndpointCooldownSummary(
+                    endpoint: "issues/40791",
+                    repository: "openclaw/crabbox",
+                    url: "https://api.github.com/repos/openclaw/crabbox/issues/40791",
+                    retryAfter: now.addingTimeInterval(120)
+                ),
+                EndpointCooldownSummary(
+                    endpoint: "issues/44144",
+                    repository: "openclaw/acpx",
+                    url: "https://api.github.com/repos/openclaw/acpx/issues/44144",
+                    retryAfter: now.addingTimeInterval(120)
+                )
+            ],
+            restRateLimit: nil,
+            graphQLRateLimit: nil,
+            rateLimitResources: nil
+        )
+
+        let sections = RateLimitStatusFormatter.sections(
+            diagnostics: diagnostics,
+            cacheSummary: nil,
+            now: now
+        )
+
+        #expect(sections.map(\.title) == ["Current Blocker", "Endpoint Cooldowns"])
+        #expect(sections[0].resourceRows.map(\.text) == ["REST core blocked"])
+        #expect(sections[1].rows == [
+            "issues/40791: 2 repositories · retry in 2 min.",
+            "openclaw/acpx issues/44144 · retry in 2 min."
+        ])
+    }
+
+    @Test
     func `budget model explains auth actor and gh cli exception`() throws {
         let now = Date(timeIntervalSinceReferenceDate: 8000)
         let diagnostics = try DiagnosticsSummary(

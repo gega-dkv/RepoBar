@@ -107,7 +107,6 @@ actor GitHubRequestRunner {
             let resetDate = self.rateLimitDate(from: response) ?? Date().addingTimeInterval(60)
             self.lastRateLimitReset = resetDate
             await self.etagCache.setRateLimitReset(date: resetDate)
-            await self.backoff.setCooldown(url: response.url ?? url, until: resetDate)
             self.lastRateLimitError = "GitHub rate limit hit; resets " +
                 "\(RelativeFormatter.string(from: resetDate, relativeTo: Date()))."
             self.logger.warning("HTTP GET \(Self.logPath(for: url)) rateLimited status=\(status) reset=\(resetDate)")
