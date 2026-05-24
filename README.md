@@ -31,7 +31,7 @@ RepoBar's main menu is a repository dashboard:
 - A contribution header for the signed-in GitHub account.
 - Filters for all repositories, pinned repositories, local repositories, and work-focused views.
 - A profile submenu with recent GitHub activity.
-- A GitHub rate-limit submenu showing live REST/GraphQL state and persisted REST resource headers.
+- A GitHub API status submenu showing current blockers, live REST/GraphQL state, and persisted REST resource headers.
 - Quick access to Preferences, About, and Quit.
 
 Each repository has a rich submenu:
@@ -89,6 +89,8 @@ Optional auto-sync fetches and fast-forwards clean repositories on a configurabl
 RepoBar is designed to open from local data first and spend GitHub requests carefully.
 
 It stores REST ETags, response bodies, GraphQL responses, recent lists, repository detail data, and rate-limit state in RepoBar-owned storage. First-open menu rows can be seeded from the persistent cache, then refreshed in the background.
+
+GitHub core limits are usually shared by the GitHub user or integration actor, not by each token string. A PAT, another OAuth app, another GitHub App user token, and `gh` CLI requests for the same account can draw from one shared user budget. The `gh` CLI may keep working after other requests are blocked because GitHub grants that app extra allowance, but using `gh` still spends the normal user budget first.
 
 The optional typed GitHub reference monitor is cache-first too: when enabled in Advanced settings, RepoBar watches issue-number patterns and commit-like hashes, looks for matching cached issues, pull requests, or commits in accessible repositories, and falls back to live GitHub lookups on cache misses. The best match appears as a separate menu bar item that opens in your default browser. Global monitoring requires granting RepoBar Accessibility permission in System Settings.
 
@@ -184,7 +186,7 @@ Useful docs:
 
 ## Status
 
-RepoBar is early and moving quickly. The latest released version is 0.4.1, with smarter persistent caching, archive-backed fallback paths, rate-limit visibility, and more robust menu behavior.
+RepoBar is early and moving quickly. The latest released version is 0.5.0, with smarter persistent caching, archive-backed fallback paths, rate-limit visibility, GitHub reference previews, and more robust menu behavior.
 
 ## License
 

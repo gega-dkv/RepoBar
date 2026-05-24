@@ -35,12 +35,14 @@ final class Session {
     var localDiscoveredRepoCount = 0
     var localProjectsScanInProgress = false
     var localProjectsAccessDenied = false
-    var keyboardIssueMatch: GitHubReferenceMatch?
+    var gitHubReferenceMatches: [GitHubReferenceMatch] = []
+    var gitHubReferenceMatch: GitHubReferenceMatch?
 
     var rateLimitDisplayState: RateLimitDisplayState {
         RateLimitDisplayState(
             diagnostics: self.rateLimitDiagnostics,
-            cacheSummary: self.rateLimitCacheSummary
+            cacheSummary: self.rateLimitCacheSummary,
+            authMethod: self.settings.authMethod
         )
     }
 }

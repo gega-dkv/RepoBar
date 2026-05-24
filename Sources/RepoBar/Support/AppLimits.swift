@@ -29,12 +29,24 @@ enum AppLimits {
         static let issueLabelChipLimit: Int = 6
     }
 
-    enum IssueNumberMonitor {
+    enum GitHubReferenceMonitor {
         static let minimumBareDigits = 1
-        static let maximumTokenLength = 48
-        static let resetDelay: TimeInterval = 1.25
+        static let queryLimit = 8
+        static let resolutionConcurrencyLimit = 4
         static let cacheLookupLimit = 20
         static let liveLookupLimit = 80
+    }
+
+    enum IssueNavigator {
+        static let searchLimit = 50
+        static let maxRepositorySearchFanout = 12
+        static let perRepositorySearchLimit = 12
+        static let recentRepositoryLimit = 8
+        static let perRepositoryRecentLimit = 4
+        static let repositorySearchConcurrencyLimit = 4
+        static let minimumSearchCharacters = 2
+        static let webPreviewPreloadLimit = 8
+        static let webPreviewCacheLimit = 12
     }
 
     enum RepoCommits {

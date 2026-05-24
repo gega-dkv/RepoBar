@@ -100,7 +100,7 @@ struct RateLimitJuiceTests {
 
         #expect(state.juice.compactRestText == "4.9K")
         #expect(state.compactSummary(now: now).contains("4.9K/5K left"))
-        #expect(state.sections(now: now).first?.rows.first?.contains("4948/5000") == true)
+        #expect(state.sections(now: now).flatMap(\.rows).contains { $0.contains("4948/5000") })
     }
 
     @Test

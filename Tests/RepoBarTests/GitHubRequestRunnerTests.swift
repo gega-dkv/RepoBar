@@ -21,7 +21,7 @@ struct GitHubRequestRunnerTests {
         let backoff = BackoffTracker()
         let retryAfter = Date().addingTimeInterval(30)
         await backoff.setCooldown(url: url, until: retryAfter)
-        let runner = GitHubRequestRunner(backoff: backoff)
+        let runner = GitHubRequestRunner(etagCache: ETagCache(), backoff: backoff)
 
         do {
             _ = try await runner.get(url: url, token: "token")
@@ -43,6 +43,31 @@ struct GitHubRequestRunnerTests {
         let message = GitHubRequestRunner.cooldownMessage(for: url, until: retryAfter, now: now)
 
         #expect(message == "GitHub endpoint cooldown (Actions runs); retry in 30 sec.")
+    }
+
+    @Test
+    func `bad status message includes GitHub response detail`() {
+        let data = Data("""
+        {
+          "message": "Validation Failed",
+          "errors": [
+            { "resource": "Search", "field": "q", "code": "invalid", "message": "Search query is too broad." }
+          ]
+        }
+        """.utf8)
+
+        let message = GitHubRequestRunner.statusMessage(for: 422, data: data)
+
+        #expect(message == "GitHub returned 422: Validation Failed: Search query is too broad.")
+    }
+
+    @Test
+    func `bad status message keeps fallback for non github body`() {
+        let data = Data("nope".utf8)
+
+        let message = GitHubRequestRunner.statusMessage(for: 422, data: data)
+
+        #expect(message == "GitHub returned 422: client error.")
     }
 
     @Test

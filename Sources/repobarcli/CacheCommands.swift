@@ -121,7 +121,7 @@ struct RateLimitsCommand: CommanderRunnableCommand {
             return
         }
 
-        print("GitHub Rate Limits")
+        print("GitHub API Status")
         print("Cache DB: \(PathFormatter.displayString(summary.databasePath))")
         for (index, section) in sections.enumerated() {
             if index > 0 { print("") }

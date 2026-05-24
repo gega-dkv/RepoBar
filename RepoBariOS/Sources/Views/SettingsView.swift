@@ -5,10 +5,13 @@ struct SettingsView: View {
     @Bindable var appModel: AppModel
     let showsCloseButton: Bool
     @Environment(\.dismiss) private var dismiss
+    @FocusState private var isOwnerFilterFocused: Bool
+    @State private var ownerFilterText: String
 
     init(appModel: AppModel, showsCloseButton: Bool = false) {
         self._appModel = Bindable(wrappedValue: appModel)
         self.showsCloseButton = showsCloseButton
+        self._ownerFilterText = State(initialValue: OwnerFilterParser.format(appModel.session.settings.repoList.ownerFilter))
     }
 
     var body: some View {
@@ -39,6 +42,22 @@ struct SettingsView: View {
                 Stepper(value: $appModel.session.settings.repoList.displayLimit, in: 1 ... 20) {
                     Text("Repo count: \(appModel.session.settings.repoList.displayLimit)")
                 }
+                Picker("Sort", selection: $appModel.session.settings.repoList.menuSortKey) {
+                    ForEach(RepositorySortKey.allCases, id: \.self) { sortKey in
+                        Text(sortKey.label).tag(sortKey)
+                    }
+                }
+                .pickerStyle(.menu)
+                TextField("Owners", text: $ownerFilterText)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .focused($isOwnerFilterFocused)
+                    .onSubmit {
+                        applyOwnerFilterText()
+                    }
+                Text("Comma-separated owners. Empty shows all visible repositories.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Toggle("Show forks", isOn: $appModel.session.settings.repoList.showForks)
                 Toggle("Show archived", isOn: $appModel.session.settings.repoList.showArchived)
                 Toggle("Contribution header", isOn: $appModel.session.settings.appearance.showContributionHeader)
@@ -119,6 +138,17 @@ struct SettingsView: View {
             )
             appModel.updateHeatmapRange()
         }
+        .onChange(of: appModel.session.settings.repoList) { _, _ in
+            appModel.requestRefresh(cancelInFlight: true)
+        }
+        .onChange(of: isOwnerFilterFocused) { _, isFocused in
+            if isFocused == false {
+                applyOwnerFilterText()
+            }
+        }
+        .onAppear {
+            ownerFilterText = OwnerFilterParser.format(appModel.session.settings.repoList.ownerFilter)
+        }
     }
 
     private var enterpriseHostBinding: Binding<String> {
@@ -137,5 +167,11 @@ struct SettingsView: View {
                 Task { await appModel.applyHostSettings() }
             }
         )
+    }
+
+    private func applyOwnerFilterText() {
+        let owners = OwnerFilterParser.parse(ownerFilterText)
+        appModel.session.settings.repoList.ownerFilter = owners
+        ownerFilterText = OwnerFilterParser.format(owners)
     }
 }

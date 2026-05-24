@@ -1,16 +1,55 @@
 # Changelog
 
-## 0.4.2 - 2026-05-06
+## 0.5.3 - Unreleased
 
-- Add an optional Advanced setting for a typed GitHub reference monitor that can surface issue, pull request, or commit-hash matches from accessible repositories as a separate menu bar item, with visible Accessibility permission setup and live GitHub fallback on cache misses.
+- Add a full Issue Navigator window for clipboard-aware issue/PR lookup, scoped repository search, keyboard selection, copy/open actions, and inline GitHub previews.
+- Show RepoBar in the Dock while the Issue Navigator window is open, then return to menu-bar-only mode when it closes.
+- Refine Issue Navigator sidebar chrome with a translucent material sidebar and subtler native split-view divider.
+- Keep Issue Navigator all-repository searches usable when individual repository searches fail, and show GitHub response details instead of a generic client error.
+- Cap Issue Navigator all-repository search fan-out, respect the selected issue/PR filter for pasted references, and hide the navigator while signed out.
+- Sort Issue Navigator rows by latest update time, choose recent repositories using the active issue/PR filter, and surface scoped repository load failures.
+- Prevent canceled Issue Navigator searches from overwriting newer results and preserve merged pull request state in text search results.
+- Keep Issue Navigator typing from opening the selected result, avoid public GitHub fallback before repository inventory loads, and make quick close/reopen cleanup safe.
+- Fix RepoBar website mobile install cards so long commands and copy controls stay inline without horizontal overflow.
+
+## 0.5.2 - 2026-05-11
+
+- Recognize copied repository-name issue references like `discrawl#64` and resolve them against a unique local or accessible GitHub repository.
+- Resolve bare copied commit hashes like `0213e9d` against local repositories before falling back to broad GitHub lookup.
+- Recognize copied GitHub Actions run URLs like `owner/repo/actions/runs/123` as GitHub references.
+- Move GitHub reference preview actions into an inline browser header with Back, Copy, and Open controls while keeping the preview's persistent GitHub web session.
+- Explain in GitHub API Status that rate limits are shared by the GitHub user or actor across PATs, OAuth/GitHub App user tokens, and `gh` CLI requests.
+- Recognize chained and ranged copied references like `owner/repo#70/#71` and `owner/repo#66-#69` as multiple GitHub references.
+- Start inline GitHub reference browser previews below the repository header so pull request content is visible sooner.
+- Improve GitHub reference parsing for grouped `owner/repo: #1, #2` issue lists.
+- Rename the GitHub rate-limit menu to GitHub API Status and show the current blocker, shared-token note, endpoint cooldowns, live bucket quotas, and sample age as separate lines.
+- Bring the iOS app closer to macOS parity with repository search/filter/sort/owner controls, GitHub rate-limit diagnostics, a manual GitHub reference resolver, share-sheet handoff, and inline reference previews.
+
+## 0.5.1 - 2026-05-10
+
+- Let the GitHub reference monitor recognize multiple copied references at once, infer a surrounding `owner/repo` context for bare `#123` items, and group multiple resolved matches into submenus.
+- Infer the GitHub repository for bare references from copied local git paths like `~/Projects/crabbox`.
+- Prefer inferred local git repository context over incidental prose slash-words when resolving bare GitHub references.
+- Make GitHub reference updates feel faster with shorter clipboard polling, cached local path inference, and progressive concurrent lookups.
+- Grow inline GitHub reference previews on larger displays so more of the issue or pull request is visible in the menu.
+- Fix the iOS app target build by avoiding macOS-only filesystem and git APIs (#61, thanks @jsj).
+- Restore `pnpm restart` so it rebuilds and relaunches the debug app as documented (#60, thanks @biefan).
+
+## 0.5.0 - 2026-05-09
+
+- Add an optional Advanced setting for a clipboard-only GitHub reference monitor that surfaces issues, pull requests, and commit hashes from accessible repositories as a separate menu bar item, with cache-first lookup and live GitHub fallback.
 - Show per-endpoint GitHub cooldowns in the Rate Limits sidebar and diagnostics so commit-activity backoff is distinct from healthy REST/GraphQL quota buckets.
 - Stop showing a generic “not found” warning when a repository has no visible releases endpoint.
 - Hide the repository filter bar when the only available scope would be Local.
-- Resolve copied GitHub issue, pull request, and commit URLs through live GitHub even before signing in.
+- Recognize copied GitHub URLs, owner/repo#number shorthands, and short or long commit hashes, including hashes embedded in pull request changes URLs and numeric-looking short hashes.
+- Add a CLI reference translator so GitHub reference parsing can be tested end to end.
 - Move GitHub reference watcher pasteboard polling off the main thread so the menu bar stays responsive.
 - Restore AppKit-native status item menus, keep the status buttons enabled, and remove the watcher item when no match is visible.
-- Keep typed GitHub reference watching behind a separate Advanced setting so clipboard watching cannot install a global keyboard monitor by default.
-- Show GitHub reference matches as a richer inline menu preview with state, kind, title, repository, and timestamp.
+- Keep GitHub reference watching clipboard-only so RepoBar never needs Accessibility permission or global keyboard monitoring.
+- Show GitHub reference matches in a preloaded inline browser preview, with iconed Open and Copy commands above a taller browser area.
+- Distinguish open, closed, and merged GitHub references in the menu bar title and icon.
+- Use fresh AppKit autosave names for RepoBar status items and explicitly tear them down on quit to avoid stale menu bar item state across debug relaunches.
+- Collapse the GitHub reference watcher to a zero-width placeholder between matches so it keeps its menu bar placement while avoiding stale hit regions.
 - Remove misleading page-size count badges from Releases, Discussions, Tags, Branches, and Contributors submenu rows.
 - Sort repository activity events by timestamp so repo submenus do not show stale activity when GitHub returns events out of order.
 - Refresh the RepoBar website with a cleaner minimal design, dark-mode support, and clearer install/setup copy.

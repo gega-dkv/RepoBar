@@ -107,6 +107,36 @@ public actor GitHubClient {
         await self.restAPI.liveReferenceMatch(query: query)
     }
 
+    public func searchIssueReferences(
+        matching query: String,
+        repositoryFullName: String?,
+        includeIssues: Bool,
+        includePullRequests: Bool,
+        limit: Int
+    ) async throws -> [GitHubReferenceMatch] {
+        try await self.restAPI.searchIssueReferences(
+            matching: query,
+            repositoryFullName: repositoryFullName,
+            includeIssues: includeIssues,
+            includePullRequests: includePullRequests,
+            limit: limit
+        )
+    }
+
+    public func recentIssueReferences(
+        filter: String,
+        includeIssues: Bool,
+        includePullRequests: Bool,
+        limit: Int
+    ) async throws -> [GitHubReferenceMatch] {
+        try await self.restAPI.recentIssueReferences(
+            filter: filter,
+            includeIssues: includeIssues,
+            includePullRequests: includePullRequests,
+            limit: limit
+        )
+    }
+
     public func defaultRepositories(limit: Int, for _: String) async throws -> [Repository] {
         let repos = try await self.restAPI.userReposSorted(limit: max(limit, 10))
         await self.repoDetailCoordinator.updateDiscussionsCapability(

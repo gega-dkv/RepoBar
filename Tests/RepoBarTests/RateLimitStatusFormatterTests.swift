@@ -74,9 +74,10 @@ struct RateLimitStatusFormatterTests {
             now: now
         )
 
-        #expect(sections.map(\.title) == ["REST Search", "Active Limits"])
-        #expect(sections[0].rows.first?.contains("search") == true)
-        #expect(sections[1].rows.first?.contains("API rate limit exceeded") == true)
+        #expect(sections.map(\.title) == ["Current Blocker", "REST Search"])
+        #expect(sections[0].resourceRows.first?.text == "core blocked")
+        #expect(sections[0].resourceRows.first?.detailText == "API rate limit exceeded")
+        #expect(sections[1].rows.first?.contains("search") == true)
     }
 
     @Test
@@ -132,10 +133,10 @@ struct RateLimitStatusFormatterTests {
             now: now
         )
 
-        #expect(sections.map(\.title) == ["REST Core", "REST Search", "GraphQL"])
-        #expect(sections[0].rows.first?.contains("core") == true)
-        #expect(sections[1].rows.first?.contains("search") == true)
-        #expect(sections[2].rows.first?.contains("graphql") == true)
+        #expect(sections.map(\.title) == ["Current Status", "REST Core", "REST Search", "GraphQL"])
+        #expect(sections[1].rows.first?.contains("core") == true)
+        #expect(sections[2].rows.first?.contains("search") == true)
+        #expect(sections[3].rows.first?.contains("graphql") == true)
     }
 
     @Test
@@ -178,12 +179,13 @@ struct RateLimitStatusFormatterTests {
             now: now
         )
 
-        #expect(sections.map(\.title) == ["REST Core", "GraphQL"])
-        #expect(sections[0].rows[0].contains("core · 3900/5000 · resets in 10 min."))
-        #expect(sections[0].resourceRows[0].quotaText == "3900/5000")
-        #expect(sections[0].resourceRows[0].percentRemaining == 78)
-        #expect(sections[1].rows[0].contains("graphql · 4200/5000 · resets in 10 min."))
-        #expect(sections[1].resourceRows[0].percentRemaining == 84)
+        #expect(sections.map(\.title) == ["Current Status", "REST Core", "GraphQL"])
+        #expect(sections[1].rows[0].contains("core · 3900/5000 · resets in 10 min."))
+        #expect(sections[1].resourceRows[0].quotaText == "3900/5000")
+        #expect(sections[1].resourceRows[0].detailText?.contains("sampled") == true)
+        #expect(sections[1].resourceRows[0].percentRemaining == 78)
+        #expect(sections[2].rows[0].contains("graphql · 4200/5000 · resets in 10 min."))
+        #expect(sections[2].resourceRows[0].percentRemaining == 84)
 
         let cachedCore = RepoBarCacheSummary(
             databasePath: "/tmp/cache.sqlite",
@@ -212,7 +214,7 @@ struct RateLimitStatusFormatterTests {
             cacheSummary: cachedCore,
             now: now
         )
-        #expect(sectionsWithCache.map(\.title) == ["REST Core", "GraphQL"])
+        #expect(sectionsWithCache.map(\.title) == ["Current Status", "REST Core", "GraphQL"])
     }
 
     @Test
@@ -255,8 +257,10 @@ struct RateLimitStatusFormatterTests {
             now: now
         )
 
-        #expect(sections.map(\.title) == ["GraphQL", "Endpoint Cooldowns"])
-        #expect(sections[1].rows == ["openclaw/clawsweeper-state commit activity · retry in 1 min."])
+        #expect(sections.map(\.title) == ["Current Blocker", "GraphQL", "Endpoint Cooldowns"])
+        #expect(sections[0].resourceRows.first?.text == "Endpoint cooldown")
+        #expect(sections[0].resourceRows.first?.detailText == "openclaw/clawsweeper-state commit activity · retry in 1 min.")
+        #expect(sections[2].rows == ["openclaw/clawsweeper-state commit activity · retry in 1 min."])
     }
 
     @Test
@@ -295,7 +299,89 @@ struct RateLimitStatusFormatterTests {
         )
         let state = RateLimitDisplayState(diagnostics: diagnostics)
 
-        #expect(summary == "Endpoint cooldown · openclaw/openclaw commit activity · retry in 30 sec.")
+        #expect(summary == "Blocked: Endpoint cooldown · openclaw/openclaw commit activity · retry in 30 sec.")
         #expect(state.isLimited(now: now))
+    }
+
+    @Test
+    func `current blocker explains shared token budget while live buckets stay visible`() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 7000)
+        let diagnostics = try DiagnosticsSummary(
+            apiHost: #require(URL(string: "https://api.github.com")),
+            rateLimitReset: now.addingTimeInterval(120),
+            lastRateLimitError: "GitHub rate limit hit; resets in 2 min.",
+            etagEntries: 0,
+            backoffEntries: 0,
+            restRateLimit: nil,
+            graphQLRateLimit: nil,
+            rateLimitResources: RateLimitResourcesSnapshot(
+                fetchedAt: now,
+                resources: [
+                    "graphql": RateLimitSnapshot(
+                        resource: "graphql",
+                        limit: 5000,
+                        remaining: 4532,
+                        used: 468,
+                        reset: now.addingTimeInterval(900),
+                        fetchedAt: now
+                    ),
+                    "core": RateLimitSnapshot(
+                        resource: "core",
+                        limit: 5000,
+                        remaining: 2692,
+                        used: 2308,
+                        reset: now.addingTimeInterval(120),
+                        fetchedAt: now
+                    )
+                ]
+            )
+        )
+
+        let summary = RateLimitStatusFormatter.compactSummary(
+            diagnostics: diagnostics,
+            cacheSummary: nil,
+            now: now
+        )
+        let sections = RateLimitStatusFormatter.sections(
+            diagnostics: diagnostics,
+            cacheSummary: nil,
+            now: now
+        )
+
+        #expect(summary.contains("Blocked: REST core blocked"))
+        #expect(summary.contains("Shared GitHub user budget"))
+        #expect(sections.map(\.title) == ["Current Blocker", "REST Core", "GraphQL"])
+        #expect(sections[0].resourceRows.first?.quotaText == "0 left")
+        #expect(sections[0].resourceRows.first?.resetText == "resets in 2 min.")
+        #expect(sections[1].resourceRows.first?.quotaText == "2692/5000")
+        #expect(sections[2].resourceRows.first?.quotaText == "4532/5000")
+    }
+
+    @Test
+    func `budget model explains auth actor and gh cli exception`() throws {
+        let now = Date(timeIntervalSinceReferenceDate: 8000)
+        let diagnostics = try DiagnosticsSummary(
+            apiHost: #require(URL(string: "https://api.github.com")),
+            rateLimitReset: now.addingTimeInterval(120),
+            lastRateLimitError: "GitHub rate limit hit; resets in 2 min.",
+            etagEntries: 0,
+            backoffEntries: 0,
+            restRateLimit: nil,
+            graphQLRateLimit: nil,
+            rateLimitResources: nil
+        )
+
+        let sections = RateLimitStatusFormatter.sections(
+            diagnostics: diagnostics,
+            cacheSummary: nil,
+            authMethod: .pat,
+            now: now
+        )
+
+        #expect(sections.map(\.title).prefix(2) == ["Current Blocker", "Budget Model"])
+        #expect(sections[1].rows.contains("RepoBar auth: PAT"))
+        #expect(sections[1].rows.contains("Budget actor: token owner"))
+        #expect(sections[1].rows.contains { $0.contains("one shared REST core budget") })
+        #expect(sections[1].rows.contains { $0.contains("gh CLI may still work") })
     }
 }

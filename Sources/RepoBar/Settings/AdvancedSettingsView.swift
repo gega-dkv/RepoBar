@@ -168,48 +168,23 @@ struct AdvancedSettingsView: View {
             }
 
             Section {
-                Toggle("Watch GitHub references", isOn: self.$session.settings.issueNumberMonitor.enabled)
-                    .onChange(of: self.session.settings.issueNumberMonitor.enabled) { _, _ in
+                Toggle("Watch copied GitHub references", isOn: self.$session.settings.gitHubReferenceMonitor.enabled)
+                    .onChange(of: self.session.settings.gitHubReferenceMonitor.enabled) { _, _ in
                         self.appState.persistSettings()
-                        self.appState.updateKeyboardIssueMonitor()
+                        self.appState.updateGitHubReferenceMonitor()
                     }
 
-                Toggle("Watch typed references", isOn: self.$session.settings.issueNumberMonitor.typedReferencesEnabled)
-                    .disabled(self.session.settings.issueNumberMonitor.enabled == false || self.appState.accessibilityPermission.isTrusted == false)
-                    .onChange(of: self.session.settings.issueNumberMonitor.typedReferencesEnabled) { _, _ in
-                        self.appState.persistSettings()
-                        self.appState.updateKeyboardIssueMonitor()
-                    }
-
-                LabeledContent("Accessibility") {
-                    HStack(spacing: 8) {
-                        Image(systemName: self.accessibilityStatusIcon)
-                            .foregroundStyle(self.accessibilityStatusColor)
-                        Text(self.accessibilityStatusLabel)
-                            .foregroundStyle(self.accessibilityStatusColor)
-                    }
-                }
-
-                if self.appState.accessibilityPermission.isTrusted == false {
-                    HStack(spacing: 10) {
-                        Button("Grant Accessibility") {
-                            self.appState.accessibilityPermission.requestPrompt()
-                            self.appState.updateKeyboardIssueMonitor()
-                        }
-                        .buttonStyle(.borderedProminent)
-
-                        Button("Open Settings") {
-                            self.appState.accessibilityPermission.openSystemSettings()
-                        }
-                        .buttonStyle(.bordered)
+                if self.session.settings.gitHubReferenceMonitor.enabled {
+                    LabeledContent("Matches") {
+                        Text("GitHub URLs, issue numbers, commit hashes")
+                            .foregroundStyle(.secondary)
                     }
                 }
             } header: {
-                Text("GitHub Reference Watcher")
+                Text("GitHub References")
             } footer: {
                 Text(
-                    "Watches copied GitHub URLs, issue numbers, and commit hashes, then shows the best cached or live match in a separate menu bar item. " +
-                        "Typed references are optional and require Accessibility."
+                    "Shows the best cached or live match in a separate menu bar item when a copied reference resolves."
                 )
             }
 
@@ -261,8 +236,7 @@ struct AdvancedSettingsView: View {
         .padding(.vertical, 16)
         .onAppear {
             self.ensurePreferredTerminal()
-            _ = self.appState.accessibilityPermission.refresh()
-            self.appState.updateKeyboardIssueMonitor()
+            self.appState.updateGitHubReferenceMonitor()
             self.appState.refreshLocalProjects()
             self.cliStatus = self.currentCLIStatus()
         }
@@ -322,18 +296,6 @@ struct AdvancedSettingsView: View {
             }
         }
         return matched
-    }
-
-    private var accessibilityStatusLabel: String {
-        self.appState.accessibilityPermission.isTrusted ? "Granted" : "Required"
-    }
-
-    private var accessibilityStatusIcon: String {
-        self.appState.accessibilityPermission.isTrusted ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-    }
-
-    private var accessibilityStatusColor: Color {
-        self.appState.accessibilityPermission.isTrusted ? .green : .orange
     }
 
     // MARK: - CLI installer

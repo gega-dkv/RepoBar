@@ -23,6 +23,7 @@ struct MenuBuildSignature: Hashable {
 }
 
 struct RateLimitMenuSignature: Hashable {
+    let authMethod: AuthMethod?
     let reset: Date?
     let lastError: String?
     let restResource: String?
@@ -44,6 +45,7 @@ struct RateLimitMenuSignature: Hashable {
 
     init(_ state: RateLimitDisplayState) {
         let diagnostics = state.diagnostics
+        self.authMethod = state.authMethod
         self.reset = diagnostics.rateLimitReset
         self.lastError = diagnostics.lastRateLimitError
         self.restResource = diagnostics.restRateLimit?.resource

@@ -3,13 +3,16 @@ import Foundation
 public struct RateLimitDisplayState: Sendable {
     public let diagnostics: DiagnosticsSummary
     public let cacheSummary: RepoBarCacheSummary?
+    public let authMethod: AuthMethod?
 
     public init(
         diagnostics: DiagnosticsSummary,
-        cacheSummary: RepoBarCacheSummary? = nil
+        cacheSummary: RepoBarCacheSummary? = nil,
+        authMethod: AuthMethod? = nil
     ) {
         self.diagnostics = diagnostics
         self.cacheSummary = cacheSummary
+        self.authMethod = authMethod
     }
 
     public var juice: RateLimitJuice {
@@ -23,6 +26,7 @@ public struct RateLimitDisplayState: Sendable {
         RateLimitStatusFormatter.compactSummary(
             diagnostics: self.diagnostics,
             cacheSummary: self.cacheSummary,
+            authMethod: self.authMethod,
             now: now
         )
     }
@@ -31,6 +35,7 @@ public struct RateLimitDisplayState: Sendable {
         RateLimitStatusFormatter.sections(
             diagnostics: self.diagnostics,
             cacheSummary: self.cacheSummary,
+            authMethod: self.authMethod,
             now: now
         )
     }

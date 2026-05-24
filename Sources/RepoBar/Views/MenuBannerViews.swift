@@ -101,7 +101,7 @@ struct RateLimitStatusRowView: View {
                 .foregroundStyle(self.isLimited ? .orange : MenuHighlightStyle.secondary(self.isHighlighted))
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("GitHub Rate Limits")
+                Text("GitHub API Status")
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(MenuHighlightStyle.primary(self.isHighlighted))
                 Text(self.summary)
@@ -116,7 +116,7 @@ struct RateLimitStatusRowView: View {
         .padding(.vertical, 5)
         .frame(maxWidth: .infinity, alignment: .leading)
         .accessibilityElement(children: .combine)
-        .accessibilityLabel("GitHub Rate Limits, \(self.summary)")
+        .accessibilityLabel("GitHub API Status, \(self.summary)")
     }
 }
 
@@ -196,11 +196,31 @@ struct RateLimitResourceRowView: View {
                         )
                     }
 
-                    if let reset = self.row.resetText {
+                    if let reset = self.row.resetText, let sampled = self.sampledDetail {
+                        HStack(alignment: .firstTextBaseline, spacing: 10) {
+                            Text(reset)
+                                .lineLimit(1)
+
+                            Spacer(minLength: 8)
+
+                            Text(sampled)
+                                .lineLimit(1)
+                        }
+                        .font(.caption2)
+                        .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                    } else if let reset = self.row.resetText {
                         Text(reset)
                             .font(.caption2)
                             .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
                             .lineLimit(1)
+                    }
+
+                    if let detail = self.nonSampledDetail {
+                        Text(detail)
+                            .font(.caption2)
+                            .foregroundStyle(MenuHighlightStyle.secondary(self.isHighlighted))
+                            .lineLimit(2)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             } else {
@@ -216,6 +236,18 @@ struct RateLimitResourceRowView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, RateLimitMenuMetrics.horizontalPadding)
         .padding(.vertical, 4)
+    }
+
+    private var sampledDetail: String? {
+        guard let detail = self.row.detailText, detail.hasPrefix("sampled ") else { return nil }
+
+        return detail
+    }
+
+    private var nonSampledDetail: String? {
+        guard let detail = self.row.detailText, detail.isEmpty == false else { return nil }
+
+        return self.sampledDetail == nil ? detail : nil
     }
 
     private static func tint(for percent: Double) -> Color {

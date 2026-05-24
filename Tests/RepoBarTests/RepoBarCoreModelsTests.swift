@@ -142,8 +142,37 @@ struct RepoBarCoreModelsTests {
     }
 
     @Test
+    func `github reference match stores preview metadata`() throws {
+        let url = try #require(URL(string: "https://example.com"))
+        let match = GitHubReferenceMatch(
+            query: .repositoryIssueNumber(repositoryFullName: "owner/repo", number: 5),
+            title: "Title",
+            url: url,
+            repositoryFullName: "owner/repo",
+            kind: .pullRequest,
+            state: .open,
+            createdAt: Date(timeIntervalSinceReferenceDate: 10),
+            updatedAt: Date(timeIntervalSinceReferenceDate: 20),
+            bodyPreview: "Preview text",
+            authorLogin: "alice"
+        )
+
+        #expect(match.bodyPreview == "Preview text")
+        #expect(match.authorLogin == "alice")
+    }
+
+    @Test
     func `github reference query display text`() {
         #expect(GitHubReferenceQuery.issueNumber(7).displayText == "#7")
+        #expect(GitHubReferenceState.open.label == "Open")
+        #expect(GitHubReferenceState.closed.label == "Closed")
+        #expect(GitHubReferenceState.merged.label == "Merged")
+        #expect(
+            GitHubReferenceQuery.repositoryNameIssueNumber(
+                repositoryName: "discrawl",
+                number: 64
+            ).displayText == "discrawl#64"
+        )
         #expect(
             GitHubReferenceQuery.repositoryIssueNumber(
                 repositoryFullName: "openclaw/openclaw",
@@ -156,6 +185,12 @@ struct RepoBarCoreModelsTests {
                 repositoryFullName: "openclaw/openclaw",
                 hash: "ffd212ca43abcdef"
             ).displayText == "openclaw/openclaw@ffd212ca43"
+        )
+        #expect(
+            GitHubReferenceQuery.repositoryWorkflowRun(
+                repositoryFullName: "openclaw/songsee",
+                runID: 25_620_622_163
+            ).displayText == "openclaw/songsee run 25620622163"
         )
         let scoped = GitHubReferenceQuery.repositoryIssueNumber(
             repositoryFullName: "openclaw/openclaw",

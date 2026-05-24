@@ -113,7 +113,7 @@ extension StatusBarMenuBuilder {
     }
 
     func rateLimitsMenuItem(now: Date = Date()) -> NSMenuItem {
-        let item = NSMenuItem(title: "GitHub Rate Limits", action: nil, keyEquivalent: "")
+        let item = NSMenuItem(title: "GitHub API Status", action: nil, keyEquivalent: "")
         item.image = self.cachedSystemImage(named: "speedometer")
         item.submenu = self.rateLimitsSubmenu(now: now)
         return item

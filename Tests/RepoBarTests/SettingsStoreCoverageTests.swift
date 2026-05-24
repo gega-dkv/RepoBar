@@ -22,7 +22,7 @@ struct SettingsStoreCoverageTests {
 
         var settings = UserSettings()
         settings.repoList.displayLimit = 9
-        settings.issueNumberMonitor.enabled = true
+        settings.gitHubReferenceMonitor.enabled = true
         settings.githubHost = try #require(URL(string: "https://github.example.com"))
         settings.githubArchives.sources = [
             GitHubArchiveSource(
@@ -37,8 +37,6 @@ struct SettingsStoreCoverageTests {
         let loaded = store.load()
         #expect(loaded.repoList.displayLimit == 9)
         #expect(loaded.issueNumberMonitor.enabled)
-        #expect(loaded.selectedProvider == .github)
-        #expect(loaded.repositoryHosts.first?.provider == .github)
         #expect(loaded.githubHost == URL(string: "https://github.example.com")!)
         #expect(loaded.githubArchives.sources.first?.name == "openclaw")
         #expect(loaded.githubArchives.sources.first?.format == .discrawlSnapshot)
@@ -89,14 +87,11 @@ struct SettingsStoreCoverageTests {
         var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
         object.removeValue(forKey: "githubArchives")
         object.removeValue(forKey: "issueNumberMonitor")
-        object.removeValue(forKey: "selectedProvider")
-        object.removeValue(forKey: "repositoryHosts")
-        object.removeValue(forKey: "repositoryAccounts")
         let legacyData = try JSONSerialization.data(withJSONObject: object)
 
         let loaded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
         #expect(loaded.repoList.displayLimit == 4)
-        #expect(loaded.issueNumberMonitor == IssueNumberMonitorSettings())
+        #expect(loaded.gitHubReferenceMonitor == GitHubReferenceMonitorSettings())
         #expect(loaded.githubArchives == GitHubArchiveSettings())
         #expect(loaded.selectedProvider == .github)
         #expect(loaded.repositoryHosts == [.githubCom])
@@ -122,6 +117,19 @@ struct SettingsStoreCoverageTests {
         #expect(loaded.repositoryHosts.first?.webBaseURL == URL(string: "https://ghe.example.com")!)
         #expect(loaded.repositoryHosts.first?.apiBaseURL == URL(string: "https://ghe.example.com/api/v3")!)
         #expect(loaded.repositoryHosts.first?.authMethod == .pat)
+    }
+
+    @Test
+    func `load older issue number monitor setting as github reference monitor`() throws {
+        let data = try JSONEncoder().encode(UserSettings())
+        var object = try #require(JSONSerialization.jsonObject(with: data) as? [String: Any])
+        object.removeValue(forKey: "gitHubReferenceMonitor")
+        object["issueNumberMonitor"] = ["enabled": true]
+        let legacyData = try JSONSerialization.data(withJSONObject: object)
+
+        let loaded = try JSONDecoder().decode(UserSettings.self, from: legacyData)
+
+        #expect(loaded.gitHubReferenceMonitor.enabled)
     }
 
     @Test

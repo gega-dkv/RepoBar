@@ -106,10 +106,19 @@ Current behavior:
   GitHub's `open_issues_count` is never shown as an issue-only value.
 - `repobar cache status --json` reports DB path, row counts, recent responses,
   and stored rate limits.
-- The main menu includes a GitHub Rate Limits submenu that combines live
-  in-memory REST/GraphQL snapshots with the latest persisted REST resource
-  headers, so rate-budget state is visible before a hard limit is hit.
-- The menu bar rate-limit meter and GitHub Rate Limits submenu share one
+- The main menu includes a GitHub API Status submenu that shows the current
+  blocker first, then combines live in-memory REST/GraphQL snapshots with the
+  latest persisted REST resource headers, so rate-budget state is visible before
+  a hard limit is hit.
+- GitHub API Status explains the budget actor, not only the token. GitHub core
+  limits are usually shared by all tokens acting as the same user: RepoBar's
+  GitHub App user token, PATs, OAuth app tokens, GitHub App user tokens, and
+  `gh` CLI requests can all spend the same user budget. Creating another token
+  for the same account does not create another core quota.
+- `gh` CLI has elevated treatment from GitHub, so it may keep working after
+  RepoBar, PAT, or OAuth requests are blocked. It still spends the normal user
+  core budget first, which makes failures order-dependent across tools.
+- The menu bar rate-limit meter and GitHub API Status submenu share one
   refreshed display snapshot, so compact and detailed values cannot drift while
   the menu is open.
 - `repobar cache clear --json` clears persisted REST responses, GraphQL

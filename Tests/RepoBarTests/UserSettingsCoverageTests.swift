@@ -25,7 +25,7 @@ struct UserSettingsCoverageTests {
         #expect(AccentTone.system.label == "System accent")
         #expect(AccentTone.githubGreen.label == "GitHub greens")
         #expect(AppearanceSettings().showRateLimitMeterInMenuBar)
-        #expect(IssueNumberMonitorSettings().enabled == false)
+        #expect(GitHubReferenceMonitorSettings().enabled == false)
 
         #expect(GlobalActivityScope.allActivity.label == "All activity")
         #expect(GlobalActivityScope.myActivity.label == "My activity")
@@ -44,6 +44,7 @@ struct UserSettingsCoverageTests {
             .statusBanner,
             .filters,
             .repoList,
+            .issueNavigator,
             .preferences,
             .about,
             .restartToUpdate,

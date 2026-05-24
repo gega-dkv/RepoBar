@@ -124,6 +124,105 @@ struct GitHubRestAPI {
         return decoded.items
     }
 
+    func searchIssueReferences(
+        matching query: String,
+        repositoryFullName: String?,
+        includeIssues: Bool,
+        includePullRequests: Bool,
+        limit: Int
+    ) async throws -> [GitHubReferenceMatch] {
+        guard includeIssues || includePullRequests else { return [] }
+
+        let token = try await tokenProvider()
+        let baseURL = await apiHost()
+        var components = URLComponents(
+            url: baseURL.appending(path: "/search/issues"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(
+                name: "q",
+                value: Self.issueReferenceSearchQuery(
+                    from: query,
+                    repositoryFullName: repositoryFullName,
+                    includeIssues: includeIssues,
+                    includePullRequests: includePullRequests
+                )
+            ),
+            URLQueryItem(name: "sort", value: "updated"),
+            URLQueryItem(name: "order", value: "desc"),
+            URLQueryItem(name: "per_page", value: "\(max(1, min(limit, 100)))")
+        ]
+        let (data, _) = try await authorizedGet(url: components.url!, token: token)
+        let decoded = try GitHubDecoding.decode(IssueReferenceSearchResponse.self, from: data)
+        return decoded.items.compactMap { $0.match() }
+    }
+
+    func recentIssueReferences(
+        filter: String,
+        includeIssues: Bool,
+        includePullRequests: Bool,
+        limit: Int
+    ) async throws -> [GitHubReferenceMatch] {
+        guard includeIssues || includePullRequests else { return [] }
+
+        let token = try await tokenProvider()
+        let baseURL = await apiHost()
+        var components = URLComponents(
+            url: baseURL.appending(path: "/issues"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [
+            URLQueryItem(name: "filter", value: filter),
+            URLQueryItem(name: "state", value: "open"),
+            URLQueryItem(name: "sort", value: "updated"),
+            URLQueryItem(name: "direction", value: "desc"),
+            URLQueryItem(name: "per_page", value: "\(max(1, min(limit, 100)))")
+        ]
+        let (data, _) = try await authorizedGet(url: components.url!, token: token)
+        let decoded = try GitHubDecoding.decode([IssueReferenceSearchItem].self, from: data)
+        return decoded.compactMap { item in
+            guard let match = item.match() else { return nil }
+
+            switch match.kind {
+            case .issue:
+                return includeIssues ? match : nil
+            case .pullRequest:
+                return includePullRequests ? match : nil
+            case .commit, .workflowRun:
+                return nil
+            }
+        }
+    }
+
+    private static func issueReferenceSearchQuery(
+        from query: String,
+        repositoryFullName: String?,
+        includeIssues: Bool,
+        includePullRequests: Bool
+    ) -> String {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        var parts: [String] = []
+        if trimmed.isEmpty == false {
+            parts.append(trimmed)
+        }
+        if let repositoryFullName, repositoryFullName.isEmpty == false {
+            parts.append("repo:\(repositoryFullName)")
+        }
+        switch (includeIssues, includePullRequests) {
+        case (true, false):
+            parts.append("is:issue")
+        case (false, true):
+            parts.append("is:pr")
+        default:
+            break
+        }
+        if parts.isEmpty {
+            parts.append("is:open")
+        }
+        return parts.joined(separator: " ")
+    }
+
     private static func repoSearchQuery(from query: String) -> String {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return "stars:>0" }
