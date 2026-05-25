@@ -40,3 +40,24 @@ read_when:
 
 4) Post-publish asset check  
    - `Scripts/check-release-assets.sh <tag>` (zip + dSYM present)
+
+## Windows Release Add-On
+
+The Windows port ships alongside the macOS release artifacts without changing the macOS Sparkle/appcast flow.
+
+1) Build and test the Windows solution:
+   - `PATH="$PWD/.dotnet:$PATH" dotnet build Windows/RepoBar.Windows.sln --no-restore`
+   - `PATH="$PWD/.dotnet:$PATH" dotnet test Windows/RepoBar.Windows.sln --no-build`
+
+2) Package Windows artifacts:
+   - `pwsh Windows/Packaging/Scripts/package-windows.ps1 -Configuration Release -Runtime win-x64`
+   - Sign with `-Sign` only when `REPOBAR_SIGNTOOL`, `REPOBAR_SIGN_CERT_SHA1`, and timestamp configuration are available on Windows.
+
+3) Validate:
+   - `pwsh Windows/Packaging/Scripts/validate-windows-package.ps1 -ArtifactsDir Windows/artifacts`
+   - Run the manual checklist in `Windows/Packaging/windows-release-checklist.md` on Windows 11.
+   - Reconcile any remaining runtime items in `windows-phase9-parity-audit.md` before publishing a Windows artifact.
+
+4) Publish:
+   - Upload `RepoBar-Windows-<version>-win-x64.zip` and the signed MSI to the same GitHub release as the macOS artifacts.
+   - Windows updates use MSI major upgrades from GitHub Releases for v1. Do not port Sparkle to Windows.

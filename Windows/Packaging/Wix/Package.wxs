@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+  <Package
+      Name="RepoBar"
+      Manufacturer="$(var.Manufacturer)"
+      Version="$(var.ProductVersion)"
+      UpgradeCode="$(var.UpgradeCode)"
+      Scope="perUser">
+
+    <SummaryInformation Description="RepoBar for Windows" Manufacturer="$(var.Manufacturer)" />
+    <MajorUpgrade DowngradeErrorMessage="A newer version of RepoBar is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <Feature Id="ProductFeature" Title="RepoBar" Level="1">
+      <ComponentGroupRef Id="RepoBarPublishFiles" />
+      <ComponentRef Id="StartMenuShortcut" />
+      <ComponentRef Id="InstallRegistry" />
+    </Feature>
+  </Package>
+
+  <Fragment>
+    <StandardDirectory Id="LocalAppDataFolder">
+      <Directory Id="INSTALLFOLDER" Name="RepoBar" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="ApplicationProgramsFolder" Name="RepoBar" />
+    </StandardDirectory>
+  </Fragment>
+
+  <Fragment>
+    <Component Id="StartMenuShortcut" Directory="ApplicationProgramsFolder" Guid="8E21A74F-E5B8-4D2E-A3EB-A06EA7E7D29A">
+      <Shortcut
+          Id="RepoBarStartMenuShortcut"
+          Name="RepoBar"
+          Description="RepoBar"
+          Target="[INSTALLFOLDER]RepoBar.Desktop.exe"
+          WorkingDirectory="INSTALLFOLDER" />
+      <RemoveFolder Id="RemoveApplicationProgramsFolder" On="uninstall" />
+      <RegistryValue Root="HKCU" Key="Software\OpenClaw\RepoBar" Name="StartMenuShortcut" Type="integer" Value="1" KeyPath="yes" />
+    </Component>
+
+    <Component Id="InstallRegistry" Directory="INSTALLFOLDER" Guid="1A64C0C8-8425-4C11-9F91-0340183D5C95">
+      <RegistryValue Root="HKCU" Key="Software\OpenClaw\RepoBar" Name="InstallPath" Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+      <RegistryValue Root="HKCU" Key="Software\OpenClaw\RepoBar" Name="AppId" Type="string" Value="$(var.AppId)" />
+      <RegistryValue Root="HKCU" Key="Software\OpenClaw\RepoBar" Name="Version" Type="string" Value="$(var.ProductVersion)" />
+    </Component>
+  </Fragment>
+</Wix>

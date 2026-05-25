@@ -97,3 +97,25 @@ The .NET domain model should mirror the current provider-neutral Swift direction
 - The Windows port is a new implementation, not an attempt to compile the existing SwiftUI/AppKit app on Windows.
 - C#/.NET with Avalonia UI is the default migration stack unless a future requirement forces a webview-based stack.
 - v1 is read-only and provider-focused; write operations are out of scope.
+
+## Implementation Decisions Proven During The Port
+
+- The Windows solution was implemented under `Windows/` as `RepoBar.Core`, `RepoBar.Desktop`, `RepoBar.Cli`, and `RepoBar.Tests`.
+- The Windows projects target `net10.0` with centralized package versions and Avalonia `12.0.3`.
+- `RepoBar.Cli` is part of Windows v1 because it is required for diagnostics, cache/archive management, settings automation, and testable provider behavior.
+- CLI parity includes the documented repository list filters/sorts plus age, release, event, owner, mine, scope, forks, archived, and pinned filters; repository detail traffic/heatmap/release flags; repository/recent-item commands; discussions where supported; contribution heatmap; manual refresh; changelog and markdown rendering; local Git actions; checkout/open; cache/rate-limit diagnostics; documented settings keys for appearance/activity/heatmap/local controls; repository visibility commands; login/logout/status; and archive management.
+- GitHub.com and GitLab.com read-only clients are implemented. GitHub Enterprise remains in v1 through custom host/API URL support. Bitbucket Cloud and Forgejo/Gitea remain deferred extension points.
+- PAT login and browser OAuth login are implemented for the desktop shell and CLI. OAuth uses GitHub authorization code flow, PKCE, loopback callback, token exchange, client credential persistence, refresh-token persistence, and refresh-before-use in the shared core service.
+- PAT credential keys use the selected provider host for GitHub.com, GitHub Enterprise, and GitLab.com in both desktop and CLI paths.
+- Settings use `%AppData%\RepoBar`; cache uses `%LocalAppData%\RepoBar`; release credentials use Windows Credential Manager on Windows; debug/test credentials use an explicit file-backed store.
+- The persistent cache uses SQLite for REST responses, GraphQL responses, ETags, stale startup reads, and rate-limit state.
+- Refresh scheduling policy is implemented in shared core with configurable intervals, manual refresh override, and backoff-delayed next refresh.
+- Archive support is included through Discrawl-compatible source configuration, validation, import metadata, status, and CLI management.
+- Local Git support covers git.exe discovery, selected-root scanning, scan-time `local --sync`, clean/dirty/ahead/behind/diverged/missing-upstream states, local/remote branch listing with upstream tracking data, worktree detection/listing, checkout into the local projects root, shell open commands, clean behind-only fast-forward sync, and explicit-confirmation CLI rebase/reset actions.
+- Repository browser/autocomplete support is ported through shared scoring/suggestions logic and wired into the Avalonia settings view model.
+- The Avalonia default dashboard source is provider-backed and cache-first, with credential state, persisted rate-limit diagnostics, and local checkout matching. Sample data remains only for deterministic tests and smoke paths.
+- Changelog preview reads common local changelog filenames from matched checkouts and uses the shared parser with release-tag selection.
+- Windows v1 packaging is WiX MSI plus ZIP. MSIX remains deferred until runtime checks prove tray, autostart, arbitrary local Git folder access, shell launch, and Credential Manager behavior under package identity.
+- Windows updates use signed MSI major upgrades from GitHub Releases. Sparkle remains macOS-only.
+- Windows v1 has no telemetry or crash-upload service. Diagnostics are local and secret-redacted.
+- Repository-verifiable Phase 9 hardening is recorded in `windows-phase9-parity-audit.md`; final tray, installer, Credential Manager, live-provider, high-DPI, and restart/upgrade checks still require a Windows 11 VM/device and are captured as a separate target-system plan in `windows-runtime-verification-plan.md`.

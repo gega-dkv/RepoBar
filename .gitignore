@@ -83,3 +83,11 @@ DerivedData/
 *.swo
 *.idea/
 node_modules/
+
+# Local .NET SDK used by Codex/agents when the system SDK is unavailable
+.dotnet/
+
+# .NET build artifacts
+**/bin/
+**/obj/
+Windows/artifacts/
